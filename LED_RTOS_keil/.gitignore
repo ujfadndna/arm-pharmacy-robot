@@ -1,0 +1,57 @@
+# Keil/IAR Build Outputs
+Objects/
+Listings/
+DebugConfig/
+RTE/
+
+# IDE Files
+*.uvguix.*
+*.bak
+*.dep
+*.d
+*.o
+*.lst
+*.map
+*.htm
+*.axf
+*.hex
+*.bin
+*.elf
+*.lnp
+*.ini
+*.crf
+*.exf
+*.scvd
+
+# Renesas FSP Generated (keep ra_gen, exclude large files)
+# ra_gen/  # Keep this - contains important generated code
+
+# Build artifacts
+build/
+output/
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+build_log.txt
+
+# IDE specific
+.vscode/
+.idea/
+*.code-workspace
+
+# Large binary files
+*.pdf
+*.zip
+*.rar
+*.7z
+nul

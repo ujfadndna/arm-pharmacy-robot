@@ -1,0 +1,3 @@
+# RASC version and installation file
+6.1.0
+C:\Users\21181\.renesas\platform\sc\ra\fsp_6.1.0\eclipse\rasc.exe

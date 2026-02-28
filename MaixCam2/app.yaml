@@ -1,0 +1,8 @@
+id: voice_llm_chat
+name: 语音助手
+name[zh]: 语音助手
+version: 1.0.0
+icon: icon.png
+author: user
+desc: 智能药房语音助手
+desc[zh]: 智能药房语音助手

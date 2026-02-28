@@ -1,0 +1,44 @@
+# ===== Keil 构建产物 =====
+**/Objects/
+**/Listings/
+**/*.o
+**/*.elf
+**/*.hex
+**/*.bin
+**/*.axf
+**/*.map
+**/*.d
+**/*.dep
+**/*.uvguix.*
+**/*.scvd
+
+# ===== 备份和大文件 =====
+*.rar
+*.zip
+*.tar.gz
+
+# ===== 参考资料（第三方文档，体积过大） =====
+Doc/
+
+# ===== 工具目录 =====
+.claude/
+.workflow/
+tmpclaude*
+
+# ===== Python =====
+MaixCam2/config.py
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.suo
+*.user
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini
