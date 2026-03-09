@@ -389,6 +389,46 @@
               <FileType>1</FileType>
               <FilePath>.\src\cabinet_state.c</FilePath>
             </File>
+            <File>
+              <FileName>motor_ctrl_step.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\motor_ctrl_step.c</FilePath>
+            </File>
+            <File>
+              <FileName>degradation.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\degradation.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtmon.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\rtmon.c</FilePath>
+            </File>
+            <File>
+              <FileName>taskmon.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\taskmon.c</FilePath>
+            </File>
+            <File>
+              <FileName>medicine_db.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\medicine_db.c</FilePath>
+            </File>
+            <File>
+              <FileName>log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\log.c</FilePath>
+            </File>
+            <File>
+              <FileName>motor_can_dummy.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\motor_can_dummy.c</FilePath>
+            </File>
+            <File>
+              <FileName>motion_controller.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\motion_controller.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -425,9 +465,9 @@
               <FilePath>.\src\kinematics.c</FilePath>
             </File>
             <File>
-              <FileName>motor_can.c</FileName>
+              <FileName>motor_can_dummy.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\motor_can.c</FilePath>
+              <FilePath>.\src\motor_can_dummy.c</FilePath>
             </File>
             <File>
               <FileName>trajectory.c</FileName>

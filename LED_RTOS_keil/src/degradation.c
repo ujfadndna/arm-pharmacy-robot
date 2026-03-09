@@ -6,7 +6,7 @@
  */
 
 #include "degradation.h"
-#include "motor_can.h"
+#include "motor_can_dummy.h"
 #include "motion_controller.h"
 #include "debug_uart.h"
 #include "FreeRTOS.h"

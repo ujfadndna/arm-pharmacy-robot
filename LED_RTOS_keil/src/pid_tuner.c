@@ -11,7 +11,7 @@
 
 #include "pid_tuner.h"
 #include "debug_uart.h"
-#include "motor_can.h"
+#include "motor_can_dummy.h"
 #include "hal_data.h"
 #include "FreeRTOS.h"
 #include "task.h"
