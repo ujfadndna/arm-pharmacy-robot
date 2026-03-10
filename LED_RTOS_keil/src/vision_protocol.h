@@ -10,6 +10,7 @@
 #define VISION_PROTOCOL_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

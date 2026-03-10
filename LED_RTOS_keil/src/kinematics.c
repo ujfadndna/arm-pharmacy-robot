@@ -16,15 +16,28 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
-/* ========== DH参数 (ZERO机械臂) ========== */
-/* DH[i][0]=a, DH[i][1]=alpha, DH[i][2]=d, DH[i][3]=theta */
+/* ========== DH参数 (Dummy机械臂) ========== */
+/*
+ * 物理参数 (来自 dummy-auk/6dof_kinematic.cpp):
+ *   L_BASE=109mm, D_BASE=35mm, L_ARM=146mm,
+ *   L_FOREARM=115mm, D_ELBOW=52mm, L_WRIST=72mm
+ *
+ * 映射到ZERO约定 [a, alpha, d, theta_offset]:
+ *   a2 = L_ARM    = 146  (上臂长度，对应DH[2][0])
+ *   a3 = D_ELBOW  = 52   (肘部偏移，对应DH[3][0])
+ *   d4 = -L_FOREARM = -115 (前臂长度，负号与ZERO约定一致)
+ *
+ * ⚠️ TODO: 用FK验证 — 将机械臂置于已知姿态，计算末端位置与实物对比
+ *    验证通过后删除此注释
+ */
 static const float DH_PARAMS[6][4] = {
-    {0,        0,          0,          M_PI/2},
-    {0,        M_PI/2,      0,         M_PI/2},
-    {200,      M_PI,        0,         -M_PI/2},
-    {47.63f,   -M_PI/2,     -184.5,    0},
-    {0,        M_PI/2,      0,         M_PI/2},
-    {0,        M_PI/2,        0,         0}
+    /* [a,      alpha,      d,       theta_offset] */
+    {35.0f,    0,          109.0f,   M_PI/2},   /* J1: base, D_BASE, L_BASE */
+    {0,        M_PI/2,     0,        M_PI/2},   /* J2: shoulder */
+    {146.0f,   M_PI,       0,        -M_PI/2},  /* J3: elbow,   a2=L_ARM */
+    {52.0f,    -M_PI/2,    -115.0f,  0},        /* J4: wrist,   a3=D_ELBOW, d4=-L_FOREARM */
+    {0,        M_PI/2,     0,        M_PI/2},   /* J5: wrist pitch */
+    {0,        M_PI/2,     72.0f,    0}         /* J6: wrist roll, d6=L_WRIST */
 };
 
 /* 简化访问 */

@@ -33,6 +33,8 @@ extern "C" {
 #define OFFSET_S_POSTDP         22      /* 高精度模式 (0=0.1°, 1=0.01°) */
 
 /* ========== 电机状态 ========== */
+#ifndef MOTOR_STATE_T_DEFINED
+#define MOTOR_STATE_T_DEFINED
 typedef struct {
     float current_angle;    /* 当前角度(度) */
     float target_angle;     /* 目标角度(度) */
@@ -40,6 +42,7 @@ typedef struct {
     bool reached;           /* 是否到位 */
     bool error;             /* 是否故障 */
 } motor_state_t;
+#endif
 
 /* ========== 驱动器配置 ========== */
 typedef struct {

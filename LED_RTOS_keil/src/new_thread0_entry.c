@@ -6,7 +6,7 @@
 #include "debug_uart.h"
 #include "llm_action.h"
 #include "motion_controller.h"
-#include "motor_can.h"
+#include "motor_ctrl_step.h"
 #include "gripper.h"
 #include "watchdog.h"
 #include "zdt_test.h"
@@ -204,11 +204,82 @@ static int send_command_to_llm(const char *cmd)
     }
 }
 
+static void log_motion_command_result(const char *tag, int ret)
+{
+    debug_print("[");
+    debug_print(tag);
+    debug_print("] ");
+
+    if (ret == 0) {
+        debug_println("Motion command accepted.");
+    } else {
+        debug_print("Motion command failed, ret=");
+        debug_print_int(ret);
+        debug_println("");
+    }
+}
+
+static int ctrl_step_get_stall_status(uint8_t joint_index)
+{
+    if (joint_index >= MOTOR_CTRL_STEP_NUM_JOINTS) {
+        return -1;
+    }
+
+    motor_ctrl_step_feedback_t feedback = {0};
+    if (!motor_ctrl_step_get_feedback(joint_index, &feedback) || !feedback.online) {
+        return 0;
+    }
+
+    return ((feedback.state_byte & 0x10U) != 0U) ? 1 : 0;
+}
+
+static bool ctrl_step_ping_joint(uint8_t joint_index, uint32_t timeout_ms, motor_ctrl_step_feedback_t *out_feedback)
+{
+    if (joint_index >= MOTOR_CTRL_STEP_NUM_JOINTS) {
+        return false;
+    }
+
+    TickType_t request_tick = xTaskGetTickCount();
+    if (motor_ctrl_step_query_position(joint_index) != 0) {
+        return false;
+    }
+
+    TickType_t start_tick = request_tick;
+    TickType_t timeout_tick = pdMS_TO_TICKS(timeout_ms);
+    if (timeout_tick == 0U) {
+        timeout_tick = 1U;
+    }
+
+    while ((xTaskGetTickCount() - start_tick) <= timeout_tick) {
+        (void) motor_ctrl_step_poll_rx();
+
+        motor_ctrl_step_feedback_t feedback = {0};
+        if (motor_ctrl_step_get_feedback(joint_index, &feedback) && feedback.online) {
+            if (feedback.last_rx_tick >= request_tick) {
+                if (out_feedback != NULL) {
+                    *out_feedback = feedback;
+                }
+                return true;
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    return false;
+}
+
 /**
  * @brief 本地测试命令处理
  * 格式: "t x y z"     - 测试IK坐标
- * 格式: "scan"        - 自动扫描可达空间
+ * 格式: "x x y z"     - 笛卡尔运动 (dummy-auk标准命令)
+ * 格式: "m j0..j5"    - 六轴同步关节运动
  * 格式: "j id angle"  - 单轴运动 (0-5, 角度)
+ * 格式: "home id"     - 电机归零 (当前编码器位置清零)
+ * 格式: "clear id"    - 清除堵转保护
+ * 格式: "enable id"   - 使能电机
+ * 格式: "query id"    - 查询电机位置反馈
+ * 格式: "scan"        - 自动扫描可达空间
  * 格式: "acc val"     - 设置加速度 (500-5000)
  * 格式: "pid id kp kv ki" - 设置PID
  * 格式: "fast"        - 快速模式
@@ -278,50 +349,37 @@ static bool handle_test_command(const char *cmd)
         return true;
     }
 
-    /* 手动归零命令 - 把当前物理位置设为ZERO初始姿态 */
+    /* dummy-auk标准归零命令: home <joint_id> */
     if (strncmp(cmd, "home", 4) == 0) {
-        debug_println("[HOME] Calibrating arm position...");
-        debug_println("");
-        debug_println("  IMPORTANT: Before running this command, manually");
-        debug_println("  position the arm to ZERO's initial pose:");
-        debug_println("  - All joints at their mechanical zero position");
-        debug_println("");
-        debug_println("  Step 1: Sending reset command to all motors...");
-
-        /* 向所有电机发送"将当前位置清零"命令 */
-        int ret = motor_can_reset_position_to_zero(0xFF);
-        if (ret != 0) {
-            debug_println("[HOME] ERROR: Failed to reset motor positions!");
+        int joint = -1;
+        if (sscanf(cmd, "home %d", &joint) != 1) {
+            debug_println("[HOME] Usage: home <id> (id=0..5)");
+            return true;
+        }
+        if (joint < 0 || joint > 5) {
+            debug_println("[HOME] Error: joint should be 0-5");
             return true;
         }
 
-        /* 等待电机处理命令 */
-        vTaskDelay(pdMS_TO_TICKS(100));
+        debug_print("[HOME] Reset encoder zero, J");
+        debug_print_int(joint);
+        debug_println("...");
 
-        debug_println("  Step 2: Setting software to ZERO initial pose...");
-        debug_println("  Joints: 90, 90, -90, 0, 90, 0 (deg)");
-
-        /* 设置软件侧关节角度为ZERO初始姿态 */
-        float home_joints[6] = {90.0f, 90.0f, -90.0f, 0.0f, 90.0f, 0.0f};
-        motion_set_current_joints(home_joints);
-
-        /* 设置偏移量 = 软件角度 (因为电机现在是0) */
-        motion_set_joint_offsets(home_joints);
-
-        /* 重置运动状态 */
-        motion_stop();
-
-        debug_println("");
-        debug_println("[HOME] Done! Calibration complete.");
-        debug_println("[HOME] Motor zero positions saved in EEPROM.");
-        debug_println("[HOME] Software offset: [90,90,-90,0,90,0]");
+        int ret = motor_ctrl_step_home((uint8_t) joint);
+        if (ret == 0) {
+            debug_println("[HOME] Done.");
+        } else {
+            debug_print("[HOME] Failed, ret=");
+            debug_print_int(ret);
+            debug_println("");
+        }
         return true;
     }
 
     /* 急停命令 */
     if (strncmp(cmd, "stop", 4) == 0) {
         debug_println("[STOP] Emergency stop!");
-        motor_can_emergency_stop();
+        (void) motor_ctrl_step_set_enable(MOTOR_CTRL_STEP_ALL_JOINTS, false);
         motion_stop();
         return true;
     }
@@ -330,7 +388,8 @@ static bool handle_test_command(const char *cmd)
     if (strncmp(cmd, "fast", 4) == 0) {
         debug_println("[MODE] Switching to FAST mode...");
         debug_println("  Acc=3000, High PID gains");
-        motor_can_config_fast_mode();
+        /* CtrlStep协议不支持运行时FAST模式参数切换（加速度/PID配置已删除）。 */
+        debug_println("[MODE] CtrlStep does not support FAST profile config, skipped.");
         debug_println("[MODE] Done!");
         return true;
     }
@@ -339,7 +398,8 @@ static bool handle_test_command(const char *cmd)
     if (strncmp(cmd, "smooth", 6) == 0) {
         debug_println("[MODE] Switching to SMOOTH mode...");
         debug_println("  Acc=1500, Low PID gains");
-        motor_can_config_smooth_mode();
+        /* CtrlStep协议不支持运行时SMOOTH模式参数切换（加速度/PID配置已删除）。 */
+        debug_println("[MODE] CtrlStep does not support SMOOTH profile config, skipped.");
         debug_println("[MODE] Done!");
         return true;
     }
@@ -354,7 +414,8 @@ static bool handle_test_command(const char *cmd)
         debug_print("[ACC] Setting acceleration to ");
         debug_print_int(acc);
         debug_println("");
-        motor_can_set_acceleration(0xFF, (uint16_t)acc);
+        /* CtrlStep协议无set_acceleration接口，该配置项已删除。 */
+        debug_println("[ACC] CtrlStep does not support acceleration config, skipped.");
         debug_println("[ACC] Done!");
         return true;
     }
@@ -386,31 +447,134 @@ static bool handle_test_command(const char *cmd)
         debug_print_int(ki);
         debug_println("");
 
-        motor_can_set_pid((uint8_t)joint, (uint16_t)kp, (uint16_t)kv, (uint16_t)ki);
+        /* CtrlStep协议无set_pid接口，该配置项已删除。 */
+        debug_println("[PID] CtrlStep does not support PID config, skipped.");
         debug_println("[PID] Done!");
         return true;
     }
 
-    /* 单轴运动: j <joint> <angle> */
+    /* 单轴运动: j <joint> <angle> (统一走motion_controller) */
     if (cmd[0] == 'j' && cmd[1] == ' ') {
-        int joint = 0, angle = 0;
-        const char *p = cmd + 2;
-        joint = atoi(p);
-        while (*p && *p != ' ') p++; while (*p == ' ') p++;
-        angle = atoi(p);
-
+        int joint = -1;
+        float angle = 0.0f;
+        if (sscanf(cmd, "j %d %f", &joint, &angle) != 2) {
+            debug_println("[JOINT] Usage: j <id> <angle>");
+            return true;
+        }
         if (joint < 0 || joint > 5) {
             debug_println("[JOINT] Error: joint should be 0-5");
             return true;
         }
 
-        debug_print("[JOINT] Moving J");
+        float target_joints[6];
+        motion_get_current_joints(target_joints);
+        target_joints[joint] = angle;
+
+        debug_print("[JOINT] J");
         debug_print_int(joint);
-        debug_print(" to ");
-        debug_print_int(angle);
+        debug_print(" -> ");
+        debug_print_int((int) angle);
         debug_println(" deg");
 
-        motor_can_send_position((uint8_t)joint, (float)angle, 100.0f, false);
+        int ret = motion_move_to_joints(target_joints);
+        log_motion_command_result("JOINT", ret);
+        return true;
+    }
+
+    /* 六轴同步运动: m <j0> <j1> <j2> <j3> <j4> <j5> */
+    if (cmd[0] == 'm' && cmd[1] == ' ') {
+        float target_joints[6];
+        if (sscanf(cmd, "m %f %f %f %f %f %f",
+                   &target_joints[0], &target_joints[1], &target_joints[2],
+                   &target_joints[3], &target_joints[4], &target_joints[5]) != 6) {
+            debug_println("[MOTION] Usage: m <j0> <j1> <j2> <j3> <j4> <j5>");
+            return true;
+        }
+
+        debug_println("[MOTION] Multi-joint move...");
+        int ret = motion_move_to_joints(target_joints);
+        log_motion_command_result("MOTION", ret);
+        return true;
+    }
+
+    /* 笛卡尔运动: x <x> <y> <z> */
+    if (cmd[0] == 'x' && cmd[1] == ' ') {
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        if (sscanf(cmd, "x %f %f %f", &x, &y, &z) != 3) {
+            debug_println("[MOTION] Usage: x <x> <y> <z>");
+            return true;
+        }
+
+        debug_print("[MOTION] XYZ -> ");
+        debug_print_int((int) x);
+        debug_print(" ");
+        debug_print_int((int) y);
+        debug_print(" ");
+        debug_print_int((int) z);
+        debug_println("");
+
+        int ret = motion_move_to_xyz(x, y, z);
+        log_motion_command_result("MOTION", ret);
+        return true;
+    }
+
+    /* 调试命令: enable <joint_id> */
+    if (strncmp(cmd, "enable", 6) == 0) {
+        int joint = -1;
+        if (sscanf(cmd, "enable %d", &joint) != 1) {
+            debug_println("[ENABLE] Usage: enable <id> (id=0..5)");
+            return true;
+        }
+        if (joint < 0 || joint > 5) {
+            debug_println("[ENABLE] Error: joint should be 0-5");
+            return true;
+        }
+
+        int ret = motor_ctrl_step_set_enable((uint8_t) joint, true);
+        if (ret == 0) {
+            debug_println("[ENABLE] Done.");
+        } else {
+            debug_print("[ENABLE] Failed, ret=");
+            debug_print_int(ret);
+            debug_println("");
+        }
+        return true;
+    }
+
+    /* 调试命令: query <joint_id> */
+    if (strncmp(cmd, "query", 5) == 0) {
+        int joint = -1;
+        if (sscanf(cmd, "query %d", &joint) != 1) {
+            debug_println("[QUERY] Usage: query <id> (id=0..5)");
+            return true;
+        }
+        if (joint < 0 || joint > 5) {
+            debug_println("[QUERY] Error: joint should be 0-5");
+            return true;
+        }
+
+        int ret = motor_ctrl_step_query_position((uint8_t) joint);
+        if (ret != 0) {
+            debug_print("[QUERY] Request failed, ret=");
+            debug_print_int(ret);
+            debug_println("");
+            return true;
+        }
+
+        motor_ctrl_step_feedback_t feedback = {0};
+        if (motor_ctrl_step_get_feedback((uint8_t) joint, &feedback)) {
+            debug_print("[QUERY] J");
+            debug_print_int(joint);
+            debug_print(" angle=");
+            debug_print_int((int) feedback.feedback_angle_deg);
+            debug_print(" state=0x");
+            debug_print_hex(feedback.state_byte);
+            debug_print(" online=");
+            debug_print_int(feedback.online ? 1 : 0);
+            debug_println("");
+        } else {
+            debug_println("[QUERY] Failed to read cached feedback.");
+        }
         return true;
     }
 
@@ -418,18 +582,21 @@ static bool handle_test_command(const char *cmd)
     if (strncmp(cmd, "status", 6) == 0) {
         debug_println("[STATUS] Motor states:");
         for (int i = 0; i < 6; i++) {
-            motor_state_t state;
-            motor_can_get_state((uint8_t)i, &state);
+            (void) motor_ctrl_step_query_position((uint8_t) i);
+            (void) motor_ctrl_step_poll_rx();
+
+            motor_ctrl_step_feedback_t feedback = {0};
+            bool has_feedback = motor_ctrl_step_get_feedback((uint8_t) i, &feedback);
             debug_print("  J");
             debug_print_int(i);
             debug_print(": angle=");
-            debug_print_int((int)state.current_angle);
+            debug_print_int(has_feedback ? (int) feedback.feedback_angle_deg : 0);
             debug_print(" target=");
-            debug_print_int((int)state.target_angle);
+            debug_print_int(has_feedback ? (int) feedback.target_angle_deg : 0);
             debug_print(" reached=");
-            debug_print_int(state.reached ? 1 : 0);
+            debug_print_int((has_feedback && feedback.finished) ? 1 : 0);
             debug_print(" stall=");
-            debug_print_int(motor_can_get_stall_status((uint8_t)i));
+            debug_print_int(ctrl_step_get_stall_status((uint8_t) i));
             debug_println("");
         }
         return true;
@@ -456,16 +623,32 @@ static bool handle_test_command(const char *cmd)
         return true;
     }
 
-    /* 清除堵转保护: clear */
+    /* 清除堵转保护: clear <joint_id> */
     if (strncmp(cmd, "clear", 5) == 0) {
-        debug_println("[CLEAR] Clearing stall protection and degradation...");
-        degradation_clear();  /* Use degradation module to clear all faults */
-        g_collision_detected = false;  /* Reset collision flag */
-        /* Reset stall counters */
-        for (int i = 0; i < 6; i++) {
-            g_stall_count[i] = 0;
+        int joint = -1;
+        if (sscanf(cmd, "clear %d", &joint) != 1) {
+            debug_println("[CLEAR] Usage: clear <id> (id=0..5)");
+            return true;
         }
-        debug_println("[CLEAR] Done! All faults cleared.");
+        if (joint < 0 || joint > 5) {
+            debug_println("[CLEAR] Error: joint should be 0-5");
+            return true;
+        }
+
+        /* 调用motion_controller的清除堵转函数 */
+        int ret = motion_clear_stall((uint8_t)joint);
+        if (ret != 0) {
+            debug_print("[CLEAR] Failed, ret=");
+            debug_print_int(ret);
+            debug_println("");
+            return true;
+        }
+
+        /* 同步清除软件层故障标志，避免控制流程卡在保护态 */
+        degradation_clear();
+        g_collision_detected = false;
+        g_stall_count[joint] = 0U;
+        debug_println("[CLEAR] Done.");
         return true;
     }
 
@@ -514,17 +697,10 @@ static bool handle_test_command(const char *cmd)
             debug_print_int(id);
             debug_println("...");
 
-            int ret = motor_can_ping((uint8_t)id);
-            if (ret == 0) {
-                motor_state_t state;
-                motor_can_get_state((uint8_t)id, &state);
-                debug_print("[CAN] OK! Status=0x");
-                /* 打印十六进制状态 */
-                char hex[3];
-                hex[0] = "0123456789ABCDEF"[(state.status >> 4) & 0x0F];
-                hex[1] = "0123456789ABCDEF"[state.status & 0x0F];
-                hex[2] = '\0';
-                debug_print(hex);
+            motor_ctrl_step_feedback_t feedback = {0};
+            if (ctrl_step_ping_joint((uint8_t) id, 500U, &feedback)) {
+                debug_print("[CAN] OK! State=0x");
+                debug_print_hex(feedback.state_byte);
                 debug_println("");
             } else {
                 debug_println("[CAN] FAILED - no response (timeout 500ms)");
@@ -563,12 +739,12 @@ static bool handle_test_command(const char *cmd)
                 vTaskDelay(pdMS_TO_TICKS(10));
             }
             /* 重置超时计时器 */
-            motor_can_reset_timeout(0xFF);
+            /* CtrlStep超时检测API待P0-2任务实现，这里不再调用重置接口。 */
             debug_println("[CAN] Done");
         }
         else if (strncmp(sub, "disable", 7) == 0) {
             debug_println("[CAN] Disabling all motors...");
-            motor_can_set_enable(false);
+            (void) motor_ctrl_step_set_enable(MOTOR_CTRL_STEP_ALL_JOINTS, false);
             debug_println("[CAN] Done");
         }
         else if (strncmp(sub, "raw", 3) == 0) {
@@ -705,109 +881,35 @@ static bool handle_test_command(const char *cmd)
             }
             debug_println("[CAN] Stop command sent.");
         }
-        else if (strncmp(sub, "test", 4) == 0) {
-            /* 🚑 极速自救: 完整测试流程 */
-            debug_println("=== CAN Full Test ===");
-            debug_println("");
-
-            /* Step 1: 尝试扩展帧使能 */
-            debug_println("[1/4] Extended frame enable (ID=0x100)...");
-            {
-                can_frame_t frame = {
-                    .id = 0x100,
-                    .id_mode = CAN_ID_MODE_EXTENDED,
-                    .type = CAN_FRAME_TYPE_DATA,
-                    .data_length_code = 5,
-                    .options = 0
-                };
-                frame.data[0] = 0xF3;
-                frame.data[1] = 0xAB;
-                frame.data[2] = 0x01;
-                frame.data[3] = 0x00;
-                frame.data[4] = 0x6B;
-                R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            }
-            vTaskDelay(pdMS_TO_TICKS(500));
-            debug_println("  -> Try to rotate motor shaft by hand!");
-            debug_println("");
-
-            /* Step 2: 尝试标准帧使能 */
-            debug_println("[2/4] Standard frame enable (ID=0x01)...");
-            {
-                can_frame_t frame = {
-                    .id = 0x01,
-                    .id_mode = CAN_ID_MODE_STANDARD,
-                    .type = CAN_FRAME_TYPE_DATA,
-                    .data_length_code = 5,
-                    .options = 0
-                };
-                frame.data[0] = 0xF3;
-                frame.data[1] = 0xAB;
-                frame.data[2] = 0x01;
-                frame.data[3] = 0x00;
-                frame.data[4] = 0x6B;
-                R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            }
-            vTaskDelay(pdMS_TO_TICKS(500));
-            debug_println("  -> Try to rotate motor shaft by hand!");
-            debug_println("");
-
-            /* Step 3: 尝试运动命令 (扩展帧, 无sync) */
-            debug_println("[3/4] Move command - Extended, no sync...");
-            debug_println("  Target: 90 deg, 500 RPM");
-            motor_can_send_position(0, 90.0f, 500.0f, false);
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            debug_println("");
-
-            /* Step 4: 尝试运动命令 + sync触发 */
-            debug_println("[4/4] Move command - Extended, with sync...");
-            debug_println("  Target: -90 deg, 500 RPM");
-            motor_can_send_position(0, -90.0f, 500.0f, true);
-            vTaskDelay(pdMS_TO_TICKS(50));
-            motor_can_trigger_sync();
-            debug_println("  Sync triggered!");
-            vTaskDelay(pdMS_TO_TICKS(1000));
-
-            debug_println("");
-            debug_println("=== Test Complete ===");
-            debug_println("If motor didn't move at all:");
-            debug_println("  1. Check OLED: Addr=1? CAN_Baud=500k? Checksum=0x6B?");
-            debug_println("  2. Check wiring: CANH-CANH, CANL-CANL");
-            debug_println("  3. Check termination: 120 ohm at both ends");
-        }
+        /* 'can test' command removed - dummy-auk uses CtrlStep protocol, not Emm protocol */
         else if (strncmp(sub, "info", 4) == 0) {
-            /* 显示CAN调试信息 */
-            uint32_t tx_count, error_flags;
-            motor_can_get_debug_info(&tx_count, &error_flags);
+            /* CtrlStep未提供TX/error flags统计接口，改为输出反馈缓存状态。 */
+            debug_println("[CAN] CtrlStep feedback cache:");
+            for (int i = 0; i < 6; i++) {
+                motor_ctrl_step_feedback_t feedback = {0};
+                bool has_feedback = motor_ctrl_step_get_feedback((uint8_t) i, &feedback);
 
-            debug_println("[CAN] Debug Info:");
-            debug_print("  TX Complete Count: ");
-            debug_print_int((int)tx_count);
-            debug_println("");
-
-            debug_print("  Error Flags: 0x");
-            char hex[3];
-            hex[0] = "0123456789ABCDEF"[(error_flags >> 4) & 0x0F];
-            hex[1] = "0123456789ABCDEF"[error_flags & 0x0F];
-            hex[2] = '\0';
-            debug_print(hex);
-            debug_println("");
-
-            if (error_flags == 0) {
-                debug_println("  Status: OK (no errors)");
-            } else {
-                if (error_flags & 0x01) debug_println("  - ERR_WARNING: TEC/REC threshold");
-                if (error_flags & 0x02) debug_println("  - ERR_PASSIVE: Error passive state");
-                if (error_flags & 0x04) debug_println("  - ERR_BUS_OFF: Bus off! Check wiring");
-                if (error_flags & 0x08) debug_println("  - ERR_BUS_LOCK");
-                if (error_flags & 0x10) debug_println("  - ERR_CHANNEL");
-                if (error_flags & 0x20) debug_println("  - ERR_GLOBAL");
+                debug_print("  J");
+                debug_print_int(i);
+                debug_print(" online=");
+                debug_print_int((has_feedback && feedback.online) ? 1 : 0);
+                debug_print(" state=0x");
+                debug_print_hex(has_feedback ? feedback.state_byte : 0U);
+                debug_print(" last_rx_tick=");
+                debug_print_int(has_feedback ? (int) feedback.last_rx_tick : 0);
+                debug_println("");
             }
         }
         else if (strncmp(sub, "clear", 5) == 0) {
-            debug_println("[CAN] Clearing error flags...");
-            motor_can_clear_error_flags();
-            debug_println("[CAN] Done");
+            debug_println("[CAN] Clearing CtrlStep clog latch for all joints...");
+            int ret = motor_ctrl_step_clear_clog(MOTOR_CTRL_STEP_ALL_JOINTS);
+            if (ret == 0) {
+                debug_println("[CAN] Done");
+            } else {
+                debug_print("[CAN] Failed, ret=");
+                debug_print_int(ret);
+                debug_println("");
+            }
         }
         else {
             debug_println("[CAN] Usage:");
@@ -1135,9 +1237,14 @@ void new_thread0_entry(void * pvParameters)
             debug_println("");
             debug_println("Commands:");
             debug_println("  === Motion ===");
-            debug_println("  home          - Set current pos as home");
-            debug_println("  t x y z       - Test IK (e.g. t 0 0 50)");
+            debug_println("  x x y z       - Cartesian move (e.g. x 0 0 50)");
+            debug_println("  m j0..j5      - Multi-joint move");
             debug_println("  j id angle    - Single joint (e.g. j 0 90)");
+            debug_println("  home id       - Set current encoder as zero");
+            debug_println("  clear id      - Clear stall protection");
+            debug_println("  enable id     - Enable one motor");
+            debug_println("  query id      - Query one motor position");
+            debug_println("  t x y z       - Legacy alias of x command");
             debug_println("  scan          - Auto scan workspace");
             debug_println("  stop          - Emergency stop");
             debug_println("");
@@ -1147,7 +1254,6 @@ void new_thread0_entry(void * pvParameters)
             debug_println("  acc val       - Set acceleration (100-10000)");
             debug_println("  pid j kp kv ki- Set PID (e.g. pid 0 2000 1500 500)");
             debug_println("  status        - Show motor states");
-            debug_println("  clear         - Clear stall protection");
             debug_println("");
             debug_println("  === CAN Debug ===");
             debug_println("  can ping <id> - Test motor comm (0-5)");
@@ -1222,22 +1328,28 @@ void new_thread0_entry(void * pvParameters)
                 collision_check_counter = 0;
 
                 /* CAN超时检测 (电机失联) */
-                int timeout_motor = motor_can_check_timeout();
-                if (timeout_motor >= 0) {
-                    /* Use degradation strategy instead of immediate emergency stop */
-                    degrade_level_t level = degradation_handle_fault(
-                        FAULT_CAN_TIMEOUT, (uint8_t)timeout_motor);
+                uint8_t timeout_mask = motor_ctrl_step_check_timeout();
+                if (timeout_mask != 0) {
+                    /* 找到第一个超时的关节 */
+                    for (int i = 0; i < 6; i++) {
+                        if (timeout_mask & (1U << i)) {
+                            /* Use degradation strategy instead of immediate emergency stop */
+                            degrade_level_t level = degradation_handle_fault(
+                                FAULT_CAN_TIMEOUT, (uint8_t)i);
 
-                    if (level == DEGRADE_EMERGENCY) {
-                        g_collision_detected = true;
-                        g_executing_sequence = false;
-                    } else if (level == DEGRADE_SINGLE_JOINT) {
-                        /* Continue with degraded operation */
-                        debug_print("[DEGRADE] Continuing without J");
-                        debug_print_int(timeout_motor);
-                        debug_println("");
+                            if (level == DEGRADE_EMERGENCY) {
+                                g_collision_detected = true;
+                                g_executing_sequence = false;
+                            } else if (level == DEGRADE_SINGLE_JOINT) {
+                                /* Continue with degraded operation */
+                                debug_print("[DEGRADE] Continuing without J");
+                                debug_print_int(i);
+                                debug_println("");
+                            }
+                            debug_print("> ");
+                            break; /* 只处理第一个超时关节 */
+                        }
                     }
-                    debug_print("> ");
                 }
 
                 /* 检查所有电机的堵转状态 */
@@ -1247,7 +1359,7 @@ void new_thread0_entry(void * pvParameters)
                         continue;
                     }
 
-                    if (motor_can_get_stall_status((uint8_t)i) == 1) {
+                    if (ctrl_step_get_stall_status((uint8_t)i) == 1) {
                         /* 堵转计数+1 */
                         g_stall_count[i]++;
 
@@ -1265,7 +1377,7 @@ void new_thread0_entry(void * pvParameters)
                                 debug_print_int(i);
                                 debug_print(" stall -> ");
                                 debug_println(degradation_level_str(level));
-                                debug_println("[COLLISION] Use 'clear' to reset.");
+                                debug_println("[COLLISION] Use 'clear <id>' to reset.");
                                 debug_print("> ");
                             }
                             break;

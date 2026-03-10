@@ -33,6 +33,7 @@ void motion_init(void);
  * @brief 移动到笛卡尔坐标 (末端朝下姿态)
  * @param x,y,z 目标位置 (mm)
  * @return 0=成功开始, <0=错误
+ *         -1=参数错误, -2=IK无解, -3=轨迹规划失败, -4=电机启动失败, -5=关节超限
  */
 int motion_move_to_xyz(float x, float y, float z);
 
@@ -41,6 +42,7 @@ int motion_move_to_xyz(float x, float y, float z);
  * @param x,y,z 目标位置 (mm)
  * @param roll,pitch,yaw 目标姿态 (rad)
  * @return 0=成功开始, <0=错误
+ *         -1=参数错误, -2=IK无解, -3=轨迹规划失败, -4=电机启动失败, -5=关节超限
  */
 int motion_move_to_pose(float x, float y, float z,
                         float roll, float pitch, float yaw);
@@ -49,11 +51,12 @@ int motion_move_to_pose(float x, float y, float z,
  * @brief 直接移动到关节角度
  * @param joints 6个关节角度 (度)
  * @return 0=成功开始, <0=错误
+ *         -1=参数错误, -2=关节超限, -3=轨迹规划失败, -4=电机启动失败, -5=关节超限
  */
 int motion_move_to_joints(const float joints[6]);
 
 /**
- * @brief 周期更新 (10ms调用一次)
+ * @brief 周期更新 (5ms调用一次，200Hz)
  * @return 当前状态
  */
 motion_state_t motion_update(void);
@@ -92,6 +95,13 @@ void motion_get_current_joints(float joints[6]);
  * @return 0=有解, <0=无解
  */
 int motion_test_ik(float x, float y, float z);
+
+/**
+ * @brief 清除堵转保护并重置堵转计数器
+ * @param joint_index 关节索引 (0-5), 或 0xFF 清除所有关节
+ * @return 0=成功, <0=错误
+ */
+int motion_clear_stall(uint8_t joint_index);
 
 #ifdef __cplusplus
 }
