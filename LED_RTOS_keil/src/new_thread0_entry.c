@@ -10,9 +10,10 @@
 #include "gripper.h"
 #include "watchdog.h"
 #include "zdt_test.h"
-#include "realtime_monitor.h"
-#include "task_monitor.h"
+#include "rtmon.h"
+#include "taskmon.h"
 #include "degradation.h"
+#include "motor_test.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +48,7 @@ static volatile bool g_motion_tick = false;  /* 5ms定时器触发标志 */
 void motion_timer_callback(timer_callback_args_t *p_args)
 {
     if (TIMER_EVENT_CYCLE_END == p_args->event) {
-        rtmon_tick();  /* Record timestamp for jitter monitoring */
+        rtmon_tick(5000);  /* Record timestamp for jitter monitoring, 5ms=5000us */
         g_motion_tick = true;
     }
 }
@@ -306,7 +307,9 @@ static bool handle_test_command(const char *cmd)
             rtmon_wcet_reset();
             debug_println("[RTMON] Statistics reset.");
         } else {
-            rtmon_print_report();
+            char rtmon_buf[512];
+            rtmon_print_report(rtmon_buf, sizeof(rtmon_buf));
+            debug_println(rtmon_buf);
         }
         return true;
     }
@@ -317,8 +320,10 @@ static bool handle_test_command(const char *cmd)
             taskmon_reset();
             debug_println("[TASKMON] Statistics reset.");
         } else {
-            taskmon_update();  /* 先更新统计 */
-            taskmon_print_report();
+            taskmon_update("main_thread", 0);  /* 先更新统计 */
+            char taskmon_buf[512];
+            taskmon_print_report(taskmon_buf, sizeof(taskmon_buf));
+            debug_println(taskmon_buf);
         }
         return true;
     }
@@ -649,6 +654,64 @@ static bool handle_test_command(const char *cmd)
         g_collision_detected = false;
         g_stall_count[joint] = 0U;
         debug_println("[CLEAR] Done.");
+        return true;
+    }
+
+    /* 电机测试命令: mtest [test_id] */
+    if (strncmp(cmd, "mtest", 5) == 0) {
+        if (cmd[5] == '\0') {
+            /* 运行所有测试 */
+            debug_println("[MTEST] Running all motor tests...");
+            motor_test_run_all();
+        } else if (cmd[5] == ' ') {
+            /* 运行单个测试 */
+            int test_id = atoi(cmd + 6);
+            if (test_id < 1 || test_id > 7) {
+                debug_println("[MTEST] Usage: mtest [1-7]");
+                debug_println("  1: Enable/Disable");
+                debug_println("  2: Position Control");
+                debug_println("  3: Velocity Control");
+                debug_println("  4: Position Query");
+                debug_println("  5: Temperature Query");
+                debug_println("  6: Multi-Joint Sync");
+                debug_println("  7: Parameter Config");
+                return true;
+            }
+            debug_print("[MTEST] Running test ");
+            debug_print_int(test_id);
+            debug_println("...");
+            motor_test_run_single((uint8_t)test_id);
+        }
+        return true;
+    }
+
+    /* 手动电机控制: mmove <joint> <angle> */
+    if (strncmp(cmd, "mmove ", 6) == 0) {
+        int joint = -1;
+        float angle = 0.0f;
+        if (sscanf(cmd, "mmove %d %f", &joint, &angle) != 2) {
+            debug_println("[MMOVE] Usage: mmove <joint> <angle>");
+            debug_println("  joint: 0-5");
+            debug_println("  angle: degrees");
+            return true;
+        }
+        if (joint < 0 || joint > 5) {
+            debug_println("[MMOVE] Error: joint should be 0-5");
+            return true;
+        }
+        debug_print("[MMOVE] Moving joint ");
+        debug_print_int(joint);
+        debug_print(" to ");
+        debug_print_int((int)angle);
+        debug_println(" degrees...");
+        motor_test_move_to((uint8_t)joint, angle);
+        return true;
+    }
+
+    /* 超时检测测试: mtimeout */
+    if (strncmp(cmd, "mtimeout", 8) == 0) {
+        debug_println("[MTEST] Running timeout check test...");
+        motor_test_timeout_check();
         return true;
     }
 
@@ -1102,6 +1165,9 @@ static bool handle_test_command(const char *cmd)
     }
 
     return true;
+
+    /* 未匹配任何命令，返回false让LLM处理 */
+    return false;
 }
 
 /*
@@ -1147,7 +1213,7 @@ void new_thread0_entry(void * pvParameters)
 
     /* 初始化任务监控 */
     taskmon_init();
-    taskmon_register(NULL, "main_thread");  /* 注册主线程 */
+    taskmon_register("main_thread");  /* 注册主线程 */
     debug_println("[TASKMON] Task monitor initialized");
 
     debug_println("[DBG] GPT open...");
@@ -1315,7 +1381,7 @@ void new_thread0_entry(void * pvParameters)
             if (mstate == MOTION_EXECUTING) {
                 rtmon_wcet_start();
                 motion_update();
-                rtmon_wcet_end("motion");
+                rtmon_wcet_end();
             }
             /* 运动完成，继续执行下一个动作 */
             if (g_executing_sequence && mstate == MOTION_DONE) {
@@ -1414,7 +1480,7 @@ void new_thread0_entry(void * pvParameters)
                 taskmon_counter++;
                 if (taskmon_counter >= 2) {  /* 500ms * 2 = 1s */
                     taskmon_counter = 0;
-                    taskmon_update();
+                    taskmon_update("main_thread", 0);
                 }
 
                 if (g_wifi_error_code != 0) {

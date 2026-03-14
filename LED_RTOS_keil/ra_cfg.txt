@@ -600,7 +600,7 @@ FSP Configuration
     Instance "g_can0 CAN FD (r_canfd)"
       General: Name: g_can0
       General: Channel: 0
-      Bitrate: Automatic: Nominal Rate (bps): 500000
+      Bitrate: Automatic: Nominal Rate (bps): 1000000
       Bitrate: Automatic: FD Data Rate (bps): 2000000
       Bitrate: Automatic: Sample Point (%): 75
       Bitrate: Delay Compensation: Enable

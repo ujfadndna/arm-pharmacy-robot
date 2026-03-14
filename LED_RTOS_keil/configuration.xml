@@ -366,7 +366,7 @@
     <module id="module.driver.canfd_on_canfd.1788591338">
       <property id="module.driver.canfd.name" value="g_can0"/>
       <property id="module.driver.canfd.channel" value="0"/>
-      <property id="module.driver.canfd.bitrate.automatic.nominal_rate" value="500000"/>
+      <property id="module.driver.canfd.bitrate.automatic.nominal_rate" value="1000000"/>
       <property id="module.driver.canfd.bitrate.automatic.data_rate" value="2000000"/>
       <property id="module.driver.canfd.bitrate.automatic.sample_point" value="75"/>
       <property id="module.driver.canfd.bitrate.automatic.delay_compensation" value="module.driver.canfd.bitrate.automatic.delay_compensation.enabled"/>

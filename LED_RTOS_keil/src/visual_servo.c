@@ -4,7 +4,8 @@
  */
 
 #include "visual_servo.h"
-#include "maixcam_driver.h"
+// #include "maixcam_driver.h"  /* TODO: 待实现 MaixCam 驱动后启用 */
+static inline void maixcam_send_string(const char *s) { (void)s; }
 #include "motion_controller.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -19,6 +20,7 @@
 static vs_state_t g_vs_state = VS_IDLE;
 static align_result_t g_align_result;
 static SemaphoreHandle_t g_align_sem = NULL;
+static StaticSemaphore_t g_align_sem_buf;
 
 /***************************************************************
  * 内部函数
@@ -61,7 +63,7 @@ void visual_servo_init(void)
     g_align_result.dy = 0;
 
     if (g_align_sem == NULL) {
-        g_align_sem = xSemaphoreCreateBinary();
+        g_align_sem = xSemaphoreCreateBinaryStatic(&g_align_sem_buf);
     }
 }
 

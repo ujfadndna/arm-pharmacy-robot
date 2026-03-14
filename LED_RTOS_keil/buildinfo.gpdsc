@@ -17,9 +17,19 @@
         <file category="source" name="src/arm_mat_mult_f32.c"/>
         <file category="source" name="src/cabinet_config.c"/>
         <file category="header" name="src/cabinet_config.h" path=""/>
+        <file category="source" name="src/cabinet_demo.c"/>
+        <file category="header" name="src/cabinet_demo.h" path=""/>
+        <file category="source" name="src/cabinet_executor.c"/>
+        <file category="header" name="src/cabinet_executor.h" path=""/>
+        <file category="source" name="src/cabinet_main.c"/>
+        <file category="header" name="src/cabinet_main.h" path=""/>
+        <file category="source" name="src/cabinet_state.c"/>
+        <file category="header" name="src/cabinet_state.h" path=""/>
         <file category="source" name="src/canfd_afl.c"/>
         <file category="source" name="src/debug_uart.c"/>
         <file category="header" name="src/debug_uart.h" path=""/>
+        <file category="source" name="src/degradation.c"/>
+        <file category="header" name="src/degradation.h" path=""/>
         <file category="source" name="src/fast_math.c"/>
         <file category="header" name="src/fast_math.h" path=""/>
         <file category="source" name="src/freertos_hooks.c"/>
@@ -33,16 +43,36 @@
         <file category="header" name="src/llm_action.h" path=""/>
         <file category="source" name="src/llm_test.c"/>
         <file category="header" name="src/llm_test.h" path=""/>
+        <file category="source" name="src/log.c"/>
+        <file category="header" name="src/log.h" path=""/>
+        <file category="source" name="src/medicine_db.c"/>
+        <file category="header" name="src/medicine_db.h" path=""/>
         <file category="source" name="src/motion_controller.c"/>
         <file category="header" name="src/motion_controller.h" path=""/>
         <file category="source" name="src/motor_can.c"/>
         <file category="header" name="src/motor_can.h" path=""/>
+        <file category="source" name="src/motor_can_dummy.c"/>
+        <file category="header" name="src/motor_can_dummy.h" path=""/>
+        <file category="source" name="src/motor_ctrl_step.c"/>
+        <file category="header" name="src/motor_ctrl_step.h" path=""/>
+        <file category="source" name="src/motor_sca.c"/>
+        <file category="header" name="src/motor_sca.h" path=""/>
+        <file category="source" name="src/motor_test.c"/>
+        <file category="header" name="src/motor_test.h" path=""/>
         <file category="source" name="src/new_thread0_entry.c"/>
+        <file category="source" name="src/pid_tuner.c"/>
+        <file category="header" name="src/pid_tuner.h" path=""/>
+        <file category="source" name="src/rtmon.c"/>
+        <file category="header" name="src/rtmon.h" path=""/>
+        <file category="source" name="src/taskmon.c"/>
+        <file category="header" name="src/taskmon.h" path=""/>
         <file category="source" name="src/trajectory.c"/>
         <file category="header" name="src/trajectory.h" path=""/>
         <file category="header" name="src/vision_protocol.h" path=""/>
         <file category="source" name="src/vision_wifi.c"/>
         <file category="header" name="src/vision_wifi.h" path=""/>
+        <file category="source" name="src/visual_servo.c"/>
+        <file category="header" name="src/visual_servo.h" path=""/>
         <file category="source" name="src/w800_driver.c"/>
         <file category="header" name="src/w800_driver.h" path=""/>
         <file category="source" name="src/watchdog.c"/>

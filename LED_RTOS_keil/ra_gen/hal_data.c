@@ -212,8 +212,7 @@ const timer_instance_t g_timer0 =
 
 can_bit_timing_cfg_t g_can0_bit_timing_cfg =
 {
-    /* Actual bitrate: 1000000 Hz (1Mbps). Sample point: 75%.
-     * CANFDCLK=40MHz: 40MHz / (1 * (1+29+10)) = 1Mbps */
+    /* Actual bitrate: 1000000 Hz. Actual sample point: 75 %. */
     .baud_rate_prescaler = 1,
     .time_segment_1 = 29,
     .time_segment_2 = 10,

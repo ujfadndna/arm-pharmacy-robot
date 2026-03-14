@@ -36,7 +36,7 @@ const canfd_afl_entry_t p_canfd0_afl[CANFD_CFG_AFL_CH0_RULE_NUM] =
         {
             .id         = 0x00000000,           /* 基础ID (配合mask=0，匹配任何ID) */
             .frame_type = CAN_FRAME_TYPE_DATA,  /* 数据帧 (配合mask=0，实际接收所有) */
-            .id_mode    = CAN_ID_MODE_EXTENDED  /* 扩展帧 (配合mask=0，实际接收所有) */
+            .id_mode    = CAN_ID_MODE_STANDARD  /* 标准帧11位 (配合mask=0，实际接收所有) */
         },
         .mask =
         {

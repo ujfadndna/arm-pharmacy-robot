@@ -33,6 +33,7 @@ static cabinet_sys_state_t g_sys_state = CABINET_SYS_IDLE;
 static bool g_scan_in_progress = false;
 static bool g_scan_complete = false;
 static SemaphoreHandle_t g_scan_sem = NULL;
+static StaticSemaphore_t g_scan_sem_buf;
 
 /***************************************************************
  * 内部函数
@@ -70,7 +71,7 @@ static int trigger_scan(void)
 static int wait_scan_complete(uint32_t timeout_ms)
 {
     if (g_scan_sem == NULL) {
-        g_scan_sem = xSemaphoreCreateBinary();
+        g_scan_sem = xSemaphoreCreateBinaryStatic(&g_scan_sem_buf);
     }
 
     if (xSemaphoreTake(g_scan_sem, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {

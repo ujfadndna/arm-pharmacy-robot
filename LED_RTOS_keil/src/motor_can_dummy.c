@@ -8,6 +8,7 @@
  */
 
 #include "motor_can_dummy.h"
+#include "motor_ctrl_step.h"
 #include "hal_data.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -112,6 +113,18 @@ static int CAN_Transmit(uint32_t can_id, const uint8_t *data, uint8_t len)
             xSemaphoreTake(g_tx_sem, pdMS_TO_TICKS(1));
         } else {
             delay_us(CAN_TX_RETRY_DELAY_US);
+        }
+
+        /* 检测卡死的mailbox并abort: TMTRM=1, TMTSTS=0, TMTRF=00 → 帧从未发出 */
+        if (retry > 0 && (retry % 25) == 0) {
+            for (uint8_t ab = 0; ab < CAN_TX_MAILBOX_COUNT; ab++) {
+                volatile uint8_t sts = R_CANFD->CFDTMSTS[ab];
+                if ((sts & 0x08) && !(sts & 0x01) && !(sts & 0x06)) {
+                    R_CANFD->CFDTMC[ab] = 0x02;  /* TMTAR=1: abort request */
+                    delay_us(100);
+                    R_CANFD->CFDTMSTS[ab] = 0;   /* 清除结果标志 */
+                }
+            }
         }
     }
 
@@ -642,10 +655,38 @@ void motor_can_emergency_stop(void)
 void canfd_callback(can_callback_args_t *p_args)
 {
     if (p_args->event == CAN_EVENT_RX_COMPLETE) {
-        /* 调用我们的接收处理函数 */
+        /* 分发给 dummy 驱动 */
         motor_can_rx_callback(p_args->frame.id, p_args->frame.data, p_args->frame.data_length_code);
+        /* 同时分发给 ctrl_step 驱动 */
+        motor_ctrl_step_rx_callback(p_args->frame.id, p_args->frame.data, p_args->frame.data_length_code);
     } else if (p_args->event == CAN_EVENT_TX_COMPLETE) {
-        /* 调用发送完成回调 */
+        /* dummy 驱动的 TX 完成 */
         canfd_tx_callback(p_args);
+        /* 同时释放 ctrl_step 的 TX 信号量 */
+        motor_ctrl_step_tx_complete_notify();
+    } else if (p_args->event == CAN_EVENT_ERR_BUS_OFF) {
+        g_can_error_flags |= (1 << p_args->event);
+        /* Bus-Off自动恢复: 关闭并重新打开CAN外设 */
+        R_CANFD_Close(&g_can0_ctrl);
+        R_CANFD_Open(&g_can0_ctrl, &g_can0_cfg);
+    } else if (p_args->event == CAN_EVENT_ERR_WARNING ||
+               p_args->event == CAN_EVENT_ERR_PASSIVE) {
+        g_can_error_flags |= (1 << p_args->event);
     }
+}
+
+/* ========== 兼容桩函数 ========== */
+
+/** @brief 旧API兼容桩: 发送位置指令 (pid_tuner.c使用) */
+int motor_can_send_position(uint8_t joint_id, float angle, float speed, bool sync)
+{
+    (void)joint_id; (void)angle; (void)speed; (void)sync;
+    return -1;  /* 未实现 */
+}
+
+/** @brief 旧API兼容桩: 设置PID参数 (pid_tuner.c使用) */
+int motor_can_set_pid(uint8_t joint_id, float kp, float kv, float ki)
+{
+    (void)joint_id; (void)kp; (void)kv; (void)ki;
+    return -1;  /* 未实现 */
 }

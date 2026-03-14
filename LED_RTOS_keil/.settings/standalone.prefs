@@ -1,4 +1,4 @@
-#Sun Feb 01 15:21:12 HKT 2026
+#Wed Mar 11 21:18:16 HKT 2026
 com.renesas.cdt.ddsc.content/com.renesas.cdt.ddsc.content.defaultlinkerscript=script/fsp.scat
 com.renesas.cdt.ddsc.contentgen.options/options/suppresswarningspaths=ra/arm,ra/aws
 com.renesas.cdt.ddsc.packs.componentfiles/AWS\#\#RTOS\#\#FreeRTOS\#\#all\#\#\#\#11.1.0+fsp.6.1.0/all=1696644494,ra/aws/FreeRTOS/LICENSE.md|3205004778,ra/aws/FreeRTOS/FreeRTOS/Source/event_groups.c|3260359778,ra/aws/FreeRTOS/FreeRTOS/Source/list.c|2664302651,ra/aws/FreeRTOS/FreeRTOS/Source/queue.c|2281032974,ra/aws/FreeRTOS/FreeRTOS/Source/stream_buffer.c|3480783605,ra/aws/FreeRTOS/FreeRTOS/Source/tasks.c|2509994605,ra/aws/FreeRTOS/FreeRTOS/Source/timers.c|1696644494,ra/aws/FreeRTOS/FreeRTOS/Source/LICENSE.md|3702017456,ra/aws/FreeRTOS/FreeRTOS/Source/include/event_groups.h|3042613465,ra/aws/FreeRTOS/FreeRTOS/Source/include/atomic.h|2899392837,ra/aws/FreeRTOS/FreeRTOS/Source/include/FreeRTOS.h|2245834019,ra/aws/FreeRTOS/FreeRTOS/Source/include/message_buffer.h|1277067313,ra/aws/FreeRTOS/FreeRTOS/Source/include/queue.h|1869942647,ra/aws/FreeRTOS/FreeRTOS/Source/include/semphr.h|3879233683,ra/aws/FreeRTOS/FreeRTOS/Source/include/stream_buffer.h|176218043,ra/aws/FreeRTOS/FreeRTOS/Source/include/task.h|2771948283,ra/aws/FreeRTOS/FreeRTOS/Source/include/timers.h|1347583436,ra/aws/FreeRTOS/FreeRTOS/Source/include/deprecated_definitions.h|2798549666,ra/aws/FreeRTOS/FreeRTOS/Source/include/list.h|3812413371,ra/aws/FreeRTOS/FreeRTOS/Source/include/mpu_prototypes.h|2804498837,ra/aws/FreeRTOS/FreeRTOS/Source/include/mpu_wrappers.h|1038886775,ra/aws/FreeRTOS/FreeRTOS/Source/include/portable.h|2900225587,ra/aws/FreeRTOS/FreeRTOS/Source/include/projdefs.h|4147937855,ra/aws/FreeRTOS/FreeRTOS/Source/include/stack_macros.h|1571813677,ra/aws/FreeRTOS/FreeRTOS/Source/include/newlib-freertos.h|4137422866,ra/aws/FreeRTOS/FreeRTOS/Source/include/picolibc-freertos.h|2987473412,ra/aws/FreeRTOS/FreeRTOS/Source/include/croutine.h|1041992296,ra/fsp/src/rm_freertos_port/port.c|4290761558,ra/fsp/src/rm_freertos_port/portmacro.h
@@ -34,7 +34,7 @@ com.renesas.cdt.ddsc.packs.componentfiles/Renesas\#\#Middleware\#\#all\#\#rm_fre
 com.renesas.cdt.ddsc.packs.componentfiles/Renesas\#\#Projects\#\#all\#\#common\#\#\#\#6.1.0/all=
 com.renesas.cdt.ddsc.packs.componentfiles/Renesas\#\#Projects\#\#all\#\#common\#\#\#\#6.1.0/libraries=
 com.renesas.cdt.ddsc.project.standalone.projectgenerationoptions/isCpp=false
-com.renesas.cdt.ddsc.settingseditor/com.renesas.cdt.ddsc.settingseditor.active_page=PinConfiguration
+com.renesas.cdt.ddsc.settingseditor/com.renesas.cdt.ddsc.settingseditor.active_page=SWPConfigurator
 com.renesas.cdt.ddsc.threads.configurator/collapse/module.driver.uart_on_sci_uart.146064843=false
 com.renesas.cdt.ddsc.threads.configurator/collapse/module.driver.uart_on_sci_uart.1532442526=false
 com.renesas.cdt.ddsc.threads.configurator/collapse/module.driver.uart_on_sci_uart.937988672=false

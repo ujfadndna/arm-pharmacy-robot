@@ -730,3 +730,12 @@ int motion_clear_stall(uint8_t joint_index)
 
     return 0;
 }
+
+/* ========== 兼容桩函数 ========== */
+
+/** @brief 相对运动 (visual_servo.c使用) - 待实现 */
+int motion_move_relative(float dx, float dy, float dz)
+{
+    (void)dx; (void)dy; (void)dz;
+    return -1;  /* TODO: 实现相对运动 */
+}
