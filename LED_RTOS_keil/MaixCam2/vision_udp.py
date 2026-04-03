@@ -8,8 +8,10 @@ vision_udp.py - MaixCam2 WiFi UDP通信模块
 
 使用方法:
     from vision_udp import VisionUDP
+    from config import W800_IP, W800_UDP_PORT, LOCAL_UDP_PORT
 
-    udp = VisionUDP(target_ip="192.168.4.1", target_port=8888)
+    udp = VisionUDP(target_ip=W800_IP, target_port=W800_UDP_PORT,
+                    local_port=LOCAL_UDP_PORT)
     udp.connect()
 
     # 发送检测结果

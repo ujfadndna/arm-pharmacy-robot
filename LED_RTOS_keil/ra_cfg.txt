@@ -124,7 +124,7 @@ FSP Configuration
     PLL2 Mul x20.0
     Clock Src: PLL
     CLKOUT Disabled
-    USBCLK Disabled
+    USBCLK Src: PLL2
     USB60CLK Disabled
     OCTACLK Disabled
     CANFDCLK Src: PLL2
@@ -175,10 +175,10 @@ FSP Configuration
       P109 A1 - - - - Disabled - - "AGT3: AGTOB3; CAN1: CTX1; CGC0: CLKOUT; DEBUG0: TDO; DEBUG0: TRACESWO; GPT_OPS0: GTOVUP; GPT1: GTIOC1A; SCI9: SDA9; SCI9: TXD9; SPI0: MOSIA" - None - - 
       P110 D3 - - - - Disabled - - "AGT3: AGTEE3; CAN1: CRX1; DEBUG0: TDI; GPT_OPS0: GTOVLO; GPT1: GTIOC1B; ICU0: IRQ03; SCI2: CTSRTS2; SCI9: RXD9; SCI9: SCL9; SPI0: MISOA" - None - - 
       P111 D4 - - - - Disabled - - "AGT5: AGTOA5; BUS_ASYNCH0: A05; GPT3: GTIOC3A; ICU0: IRQ04; SCI2: SCK2; SCI9: SCK9; SPI0: RSPCKA" - None - - 
-      P112 B2 - - - - Disabled - - "AGT5: AGTOB5; BUS_ASYNCH0: A04; GPT3: GTIOC3B; OSPI0: OMCS1; QSPI0: QSSL; SCI1: SCK1; SCI2: SDA2; SCI2: TXD2; SPI0: SSLA0; SSI0: SSIBCK0" - None - - 
-      P113 B1 - - - - Disabled - - "AGT5: AGTEE5; BUS_ASYNCH0: A03; GPT2: GTIOC2A; SCI2: RXD2; SCI2: SCL2; SSI0: SSILRCK0" - None - - 
+      P112 B2 SSI0_SSIBCK0 - Low - "Peripheral mode" CMOS None "AGT5: AGTOB5; BUS_ASYNCH0: A04; GPT3: GTIOC3B; OSPI0: OMCS1; QSPI0: QSSL; SCI1: SCK1; SCI2: SDA2; SCI2: TXD2; SPI0: SSLA0; SSI0: SSIBCK0" - IO - - 
+      P113 B1 SSI0_SSILRCK0 - Low - "Peripheral mode" CMOS None "AGT5: AGTEE5; BUS_ASYNCH0: A03; GPT2: GTIOC2A; SCI2: RXD2; SCI2: SCL2; SSI0: SSILRCK0" - IO - - 
       P114 C2 - - - - Disabled - - "AGT5: AGTIO5; BUS_ASYNCH0: A02; GPT2: GTIOC2B; SCI9: CTS9; SSI0: SSIRXD0" - None - - 
-      P115 C1 - - - - Disabled - - "BUS_ASYNCH0: A01; GPT4: GTIOC4A; SSI0: SSITXD0" - None - - 
+      P115 C1 SSI0_SSITXD0 - Low - "Peripheral mode" CMOS None "BUS_ASYNCH0: A01; GPT4: GTIOC4A; SSI0: SSITXD0" - IO - - 
       P200 C8 - - - - Disabled - - "ICU0: NMI" - None - - 
       P201 B8 - - - - Disabled - - "SYSTEM0: MD" - None - - 
       P202 B12 - - - - Disabled - - "AGT3: AGTOB3; BUS_ASYNCH0: BC1; CAN0: CRX0; CTSU0: TS19; ETHERC_MII0: ET0_ERXD2; GPT5: GTIOC5B; ICU0: IRQ03; SCI2: SCK2; SCI9: RXD9; SCI9: SCL9; SDHI0: SD0DAT6; SPI0: MISOA" - None - - 
@@ -216,7 +216,7 @@ FSP Configuration
       P403 M12 - - - - Disabled - - "AGT0: AGTIO0; AGT1: AGTIO1; AGT2: AGTIO2; AGT3: AGTIO3; ETHERC_MII0: ET0_LINKSTA; ETHERC_RMII0: ET0_LINKSTA; GPT3: GTIOC3A; ICU0: IRQ14; RTC0: RTCIC1; SCI7: CTSRTS7; SSI0: SSIBCK0" - None - - 
       P404 M13 - - - - Disabled - - "AGT0: AGTIO0; AGT1: AGTIO1; AGT2: AGTIO2; AGT3: AGTIO3; ETHERC_MII0: ET0_EXOUT; ETHERC_RMII0: ET0_EXOUT; GPT3: GTIOC3B; ICU0: IRQ15; RTC0: RTCIC2; SCI7: CTS7; SSI0: SSILRCK0" - None - - 
       P405 P15 - - - - Disabled - - "ETHERC_MII0: ET0_TX_EN; ETHERC_RMII0: RMII_TXD_EN; GPT1: GTIOC1A; SSI0: SSITXD0" - None - - 
-      P406 N14 - - - - Disabled - - "AGT5: AGTO5; ETHERC_MII0: ET0_RX_ER; ETHERC_RMII0: RMII_TXD1; GPT1: GTIOC1B; SPI0: SSLA3; SSI0: SSIRXD0" - None - - 
+      P406 N14 SSI0_SSIRXD0 - Low - "Peripheral mode" CMOS None "AGT5: AGTO5; ETHERC_MII0: ET0_RX_ER; ETHERC_RMII0: RMII_TXD1; GPT1: GTIOC1B; SPI0: SSLA3; SSI0: SSIRXD0" - IO - - 
       P407 A15 - - - - Disabled - - "ADC0: ADTRG0; AGT0: AGTIO0; CTSU0: TS03; ETHERC_MII0: ET0_EXOUT; ETHERC_RMII0: ET0_EXOUT; GPT6: GTIOC6A; IIC0: SDA0; RTC0: RTCOUT; SCI4: CTSRTS4; SPI0: SSLA3; USB_FS0: USB_VBUS" - None - - 
       P408 D13 - - - - Disabled - - "AGT2: AGTOB2; CTSU0: TS04; ETHERC_MII0: ET0_CRS; ETHERC_RMII0: RMII_CRS_DV; GPT_OPS0: GTOWLO; GPT6: GTIOC6B; ICU0: IRQ07; IIC0: SCL0; SCI3: RXD3; SCI3: SCL3; SCI4: CTS4; USB_FS0: USB_ID; USB_HS0: USBHS_ID" - None - - 
       P409 B15 - - - - Disabled - - "AGT2: AGTOA2; CTSU0: TS05; ETHERC_MII0: ET0_RX_CLK; ETHERC_RMII0: RMII_RX_ER; GPT_OPS0: GTOWUP; ICU0: IRQ06; IIC2: SDA2; SCI3: SDA3; SCI3: TXD3; USB_FS0: USB_EXICEN; USB_HS0: USBHS_EXICEN" - None - - 
@@ -224,8 +224,8 @@ FSP Configuration
       P411 C15 - - - - Disabled - - "AGT1: AGTOA1; CTSU0: TS07; ETHERC_MII0: ET0_ERXD1; ETHERC_RMII0: RMII_RXD0; GPT_OPS0: GTOVUP; GPT9: GTIOC9A; ICU0: IRQ04; SCI0: SDA0; SCI0: TXD0; SCI3: CTSRTS3; SDHI0: SD0DAT0; SPI1: MOSIB" - None - - 
       P412 D14 - - - - Disabled - - "AGT1: AGTEE1; CTSU0: TS08; ETHERC_MII0: ET0_ETXD0; ETHERC_RMII0: REF50CK; GPT_OPS0: GTOULO; SCI0: SCK0; SCI3: CTS3; SDHI0: SD0CMD; SPI1: RSPCKB" - None - - 
       P413 E13 - - - - Disabled - - "AGT3: AGTEE3; CTSU0: TS09; ETHERC_MII0: ET0_ETXD1; ETHERC_RMII0: RMII_TXD0; GPT_OPS0: GTOUUP; SCI0: CTSRTS0; SDHI0: SD0CLK; SPI1: SSLB0" - None - - 
-      P414 D15 - - - - Disabled - - "AGT5: AGTIO5; CTSU0: TS10; ETHERC_MII0: ET0_RX_ER; ETHERC_RMII0: RMII_TXD1; GPT0: GTIOC0B; ICU0: IRQ09; IIC2: SDA2; SCI0: CTS0; SDHI0: SD0WP; SPI1: SSLB1" - None - - 
-      P415 E14 - - - - Disabled - - "AGT4: AGTIO4; CTSU0: TS11; ETHERC_MII0: ET0_TX_EN; ETHERC_RMII0: RMII_TXD_EN; GPT0: GTIOC0A; ICU0: IRQ08; IIC2: SCL2; SDHI0: SD0CD; SPI1: SSLB2; USB_FS0: USB_VBUSEN" - None - - 
+      P414 D15 IIC2_SDA2 - Low None "Peripheral mode" CMOS None "AGT5: AGTIO5; CTSU0: TS10; ETHERC_MII0: ET0_RX_ER; ETHERC_RMII0: RMII_TXD1; GPT0: GTIOC0B; ICU0: IRQ09; IIC2: SDA2; SCI0: CTS0; SDHI0: SD0WP; SPI1: SSLB1" - IO - - 
+      P415 E14 IIC2_SCL2 - Low None "Peripheral mode" CMOS None "AGT4: AGTIO4; CTSU0: TS11; ETHERC_MII0: ET0_TX_EN; ETHERC_RMII0: RMII_TXD_EN; GPT0: GTIOC0A; ICU0: IRQ08; IIC2: SCL2; SDHI0: SD0CD; SPI1: SSLB2; USB_FS0: USB_VBUSEN" - IO - - 
       P500 R3 - - - - Disabled - - "ADC1: AN116; AGT0: AGTOA0; CAC0: CACREF; GPT_OPS0: GTIU; QSPI0: QSPCLK; SCI5: CTS5; USB_FS0: USB_VBUSEN" - None - - 
       P501 P4 - - - - Disabled - - "ADC1: AN117; AGT0: AGTOB0; GPT_OPS0: GTIV; ICU0: IRQ11; QSPI0: QSSL; SCI5: SDA5; SCI5: TXD5; USB_FS0: USB_OVRCURA" - None - - 
       P502 R4 - - - - Disabled - - "ADC1: AN118; AGT2: AGTOA2; GPT_OPS0: GTIW; ICU0: IRQ12; QSPI0: QIO0; SCI5: RXD5; SCI5: SCL5; SCI6: CTS6; USB_FS0: USB_OVRCURB" - None - - 
@@ -239,8 +239,8 @@ FSP Configuration
       P512 R14 SCI4_TXD4 - Low None "Peripheral mode" CMOS None "CAN1: CTX1; GPT0: GTIOC0A; ICU0: IRQ14; IIC1: SCL1; SCI4: SDA4; SCI4: TXD4" - IO - - 
       P513 N12 - - - - Disabled - - "SCI5: RXD5; SCI5: SCL5" - None - - 
       P600 L1 - - - - Disabled - - "AGT3: AGTIO3; BUS_ASYNCH0: RD; CAC0: CACREF; CGC0: CLKOUT; GPT6: GTIOC6B; OSPI0: OMSIO4; SCI9: SCK9" - None - - 
-      P601 K2 - - - - Disabled - - "AGT3: AGTEE3; BUS_ASYNCH0: WR; GPT6: GTIOC6A; OSPI0: OMSIO2; SCI9: RXD9; SCI9: SCL9" - None - - 
-      P602 K1 - - - - Disabled - - "AGT3: AGTO3; BUS_ASYNCH0: EBCLK; GPT7: GTIOC7B; OSPI0: OMCS1; SCI9: SDA9; SCI9: TXD9" - None - - 
+      P601 K2 SCI9_RXD9 - Low - "Peripheral mode" CMOS None "AGT3: AGTEE3; BUS_ASYNCH0: WR; GPT6: GTIOC6A; OSPI0: OMSIO2; SCI9: RXD9; SCI9: SCL9" - IO - - 
+      P602 K1 SCI9_TXD9 - Low - "Peripheral mode" CMOS None "AGT3: AGTO3; BUS_ASYNCH0: EBCLK; GPT7: GTIOC7B; OSPI0: OMCS1; SCI9: SDA9; SCI9: TXD9" - IO - - 
       P603 K3 - - - - Disabled - - "AGT4: AGTIO4; BUS_ASYNCH0: D13; GPT7: GTIOC7A; SCI9: CTSRTS9" - None - - 
       P604 J3 - - - - Disabled - - "AGT4: AGTEE4; BUS_ASYNCH0: D12; GPT8: GTIOC8B; SCI9: CTS9" - None - - 
       P605 J2 - - - - Disabled - - "AGT4: AGTO4; BUS_ASYNCH0: D11; GPT8: GTIOC8A; SCI8: CTS8" - None - - 
@@ -261,7 +261,7 @@ FSP Configuration
       P704 L13 - - - - Disabled - - "AGT0: AGTO0; CAN0: CTX0; ETHERC_MII0: ET0_RX_CLK; ETHERC_RMII0: RMII_RX_ER; SPI0: SSLA1" - None - - 
       P705 K12 - - - - Disabled - - "AGT0: AGTIO0; CAN0: CRX0; ETHERC_MII0: ET0_CRS; ETHERC_RMII0: RMII_CRS_DV; SCI3: CTS3; SPI0: SSLA2" - None - - 
       P706 L14 - - - - Disabled - - "ICU0: IRQ07; SCI3: RXD3; SCI3: SCL3; USB_HS0: USBHS_OVRCURB" - None - - 
-      P707 L15 - - - - Disabled - - "ICU0: IRQ08; SCI3: SDA3; SCI3: TXD3; USB_HS0: USBHS_OVRCURA" - None - - 
+      P707 L15 USB_HS0_USBHS_OVRCURA - Low None "Peripheral mode" CMOS None "ICU0: IRQ08; SCI3: SDA3; SCI3: TXD3; USB_HS0: USBHS_OVRCURA" - IO - - 
       P708 E15 - - - - Disabled - - "CAC0: CACREF; CEC0: CECIO; CTSU0: TS12; ETHERC_MII0: ET0_ETXD3; ICU0: IRQ11; SCI1: RXD1; SCI1: SCL1; SPI1: SSLB3; SSI_COMMON0: AUDIO_CLK" - None - - 
       P800 N3 - - - - Disabled - - "ADC1: AN125; AGT4: AGTOA4; BUS_ASYNCH0: D14; SCI0: CTS0" - None - - 
       P801 R1 - - - - Disabled - - "ADC1: AN126; AGT4: AGTOB4; BUS_ASYNCH0: D15; SCI8: CTS8" - None - - 
@@ -281,7 +281,7 @@ FSP Configuration
       PA08 G1 - - - - Disabled - - "ICU0: IRQ06; USB_FS0: USB_OVRCURA" - None - - 
       PA09 G4 - - - - Disabled - - "ICU0: IRQ05; USB_FS0: USB_OVRCURB" - None - - 
       PA10 G2 - - - - Disabled - - "ICU0: IRQ04" - None - - 
-      PB00 J12 - - - - Disabled - - "SCI3: SCK3; USB_HS0: USBHS_VBUSEN" - None - - 
+      PB00 J12 USB_HS0_USBHS_VBUSEN - Low - "Peripheral mode" CMOS None "SCI3: SCK3; USB_HS0: USBHS_VBUSEN" - IO - - 
       PB01 K13 - - - - Disabled - - "SCI3: CTSRTS3; USB_HS0: USBHS_VBUS" - None - - 
       PVSSUSBHS G15 USB_HS0_PVSS_USBHS - - - - - - - - IO "Read only" - 
       RES C9 SYSTEM0_RES - - - - - - - - IO "Read only" - 
@@ -477,6 +477,33 @@ FSP Configuration
     Parameter Checking: Default (BSP)
     Linker section to keep DTC vector table: .fsp_dtc_vector_table
     
+  Module "USB HCDC (r_usb_hcdc)"
+    Target Peripheral Device Class ID: CDC class supported device
+    USB Hub Multi CDC: Disabled
+    
+  Module "USB (r_usb_basic)"
+    Parameter Checking: Default (BSP)
+    CL Only Mode: Disabled
+    CPU Bus Access Wait Cycles: 9 cycles
+    Battery Charging: Enabled
+    Power IC Shutdown Polarity: Active High
+    Dedicated Charging Port (DCP) Mode: Disabled
+    Notifications for SET_INTERFACE/SET_FEATURE/CLEAR_FEATURE: Enabled
+    Double Buffering: Enabled
+    Continuous Transfer Mode: Disabled
+    LDO Regulator: Not Supported
+    DMA/DTC Support: DMA Disabled
+    DMA/DTC Source Address: DMA Disabled
+    DMA/DTC Destination Address: DMA Disabled
+    USB Compliance Test mode: Disabled
+    USB TPL table name: NULL
+    
+  Module "FreeRTOS Heap 4"
+  Module "Flash (r_flash_hp)"
+    Parameter Checking: Default (BSP)
+    Code Flash Programming Enable: Disabled
+    Data Flash Programming Enable: Enabled
+    
   FreeRTOS
     General: Custom FreeRTOSConfig.h: 
     General: Use Preemption: Enabled
@@ -511,8 +538,8 @@ FSP Configuration
     General: Message Buffer Length Type: size_t
     Memory Allocation: Clear Memory on Free: Disabled
     Memory Allocation: Support Static Allocation: Enabled
-    Memory Allocation: Support Dynamic Allocation: Disabled
-    Memory Allocation: Total Heap Size: 1024
+    Memory Allocation: Support Dynamic Allocation: Enabled
+    Memory Allocation: Total Heap Size: 16384
     Memory Allocation: Application Allocated Heap: Disabled
     Stats: Generate Run Time Stats: Disabled
     Timers: Use Timers: Enabled
@@ -699,6 +726,13 @@ FSP Configuration
       Number of Transfer Descriptors: 1
       Activation Source: SCI4 RXI (Receive data full)
       
+    Instance "g_flash0 Flash (r_flash_hp)"
+      Name: g_flash0
+      Data Flash Background Operation: Disabled
+      Callback: NULL
+      Flash Ready Interrupt Priority: Disabled
+      Flash Error Interrupt Priority: Disabled
+      
   Thread "New Thread"
     Symbol: new_thread0
     Name: New Thread
@@ -774,6 +808,57 @@ FSP Configuration
       Extra: RS-485: DE Port Number: Disabled
       Extra: RS-485: DE Pin Number: Disabled
       Interrupts: Callback: uart7_callback
+      Interrupts: Receive Interrupt Priority: Priority 12
+      Interrupts: Transmit Data Empty Interrupt Priority: Priority 12
+      Interrupts: Transmit End Interrupt Priority: Priority 12
+      Interrupts: Error Interrupt Priority: Priority 12
+      
+    Instance "g_hcdc0 USB HCDC (r_usb_hcdc)"
+      Name: g_hcdc0
+      
+      Instance "g_basic0 USB (r_usb_basic)"
+        Name: g_basic0
+        USB Mode: Host mode
+        USB Speed: Hi Speed
+        USB Module Number: USB_IP1 Port
+        USB Device Class: Host Communications Device Class
+        USB Descriptor: NULL
+        USB Compliance Callback: NULL
+        USBFS Interrupt Priority: Priority 12
+        USBFS Resume Priority: Priority 12
+        USBFS D0FIFO Interrupt Priority: Priority 12
+        USBFS D1FIFO Interrupt Priority: Priority 12
+        USBHS Interrupt Priority: Priority 12
+        USBHS D0FIFO Interrupt Priority: Priority 12
+        USBHS D1FIFO Interrupt Priority: Priority 12
+        USB Callback: usb_host_callback
+        USB Callback Context: NULL
+        
+    Instance "FreeRTOS Heap 4"
+    Instance "g_uart9 UART (r_sci_uart)"
+      General: Name: g_uart9
+      General: Channel: 9
+      General: Data Bits: 8bits
+      General: Parity: None
+      General: Stop Bits: 1bit
+      Baud: Baud Rate: 115200
+      Baud: Baud Rate Modulation: Disabled
+      Baud: Max Error (%): 5
+      Flow Control: CTS/RTS Selection: Hardware RTS
+      Flow Control: Software RTS Port: Disabled
+      Flow Control: Software RTS Pin: Disabled
+      Extra: Clock Source: Internal Clock
+      Extra: Start bit detection: Falling Edge
+      Extra: Noise Filter: Disable
+      Extra: Receive FIFO Trigger Level: Max
+      Extra: IrDA: Enable: Disabled
+      Extra: IrDA: RXD Polarity Switching: Normal
+      Extra: IrDA: TXD Polarity Switching: Normal
+      Extra: RS-485: DE Pin: Disable
+      Extra: RS-485: DE Pin Polarity: Active High
+      Extra: RS-485: DE Port Number: Disabled
+      Extra: RS-485: DE Pin Number: Disabled
+      Interrupts: Callback: uart9_callback
       Interrupts: Receive Interrupt Priority: Priority 12
       Interrupts: Transmit Data Empty Interrupt Priority: Priority 12
       Interrupts: Transmit End Interrupt Priority: Priority 12

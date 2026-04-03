@@ -13,6 +13,21 @@ const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
     },
     
     {
+        .pin = BSP_IO_PORT_01_PIN_12,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SSI)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_01_PIN_13,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SSI)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_01_PIN_15,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SSI)
+    },
+    
+    {
         .pin = BSP_IO_PORT_03_PIN_00,
         .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_DEBUG)
     },
@@ -30,6 +45,21 @@ const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
     {
         .pin = BSP_IO_PORT_04_PIN_02,
         .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_CAN)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_04_PIN_06,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SSI)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_04_PIN_14,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_IIC)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_04_PIN_15,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_IIC)
     },
     
     {
@@ -58,6 +88,16 @@ const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
     },
     
     {
+        .pin = BSP_IO_PORT_06_PIN_01,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_06_PIN_02,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+    },
+    
+    {
         .pin = BSP_IO_PORT_06_PIN_13,
         .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
     },
@@ -65,6 +105,16 @@ const ioport_pin_cfg_t g_bsp_pin_cfg_data[] = {
     {
         .pin = BSP_IO_PORT_06_PIN_14,
         .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_SCI1_3_5_7_9)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_07_PIN_07,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_USB_HS)
+    },
+    
+    {
+        .pin = BSP_IO_PORT_11_PIN_00,
+        .pin_cfg = ((uint32_t) IOPORT_CFG_PERIPHERAL_PIN | (uint32_t) IOPORT_PERIPHERAL_USB_HS)
     },
 };
 

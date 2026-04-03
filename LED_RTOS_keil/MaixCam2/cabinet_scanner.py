@@ -15,13 +15,13 @@ cabinet_scanner.py - 药柜AprilTag扫描器
   SCAN_END\n
 """
 
-from maix import camera, display, image, uart
+from maix import camera, display, image, uart, pwm, pinmap, sys as maix_sys, err
 import time
 import math
 
 # ========== 配置 ==========
-CAM_WIDTH = 640
-CAM_HEIGHT = 480
+CAM_WIDTH = 320
+CAM_HEIGHT = 240
 APRILTAG_FAMILY = image.ApriltagFamilies.TAG36H11
 APRILTAG_SIZE_MM = 30.0  # AprilTag实际尺寸 (mm)
 
@@ -33,8 +33,8 @@ UART_BAUDRATE = 115200
 # 相机内参 (需要标定后填入)
 CAMERA_FX = 600.0  # 焦距x
 CAMERA_FY = 600.0  # 焦距y
-CAMERA_CX = 320.0  # 主点x
-CAMERA_CY = 240.0  # 主点y
+CAMERA_CX = 160  # 主点x
+CAMERA_CY = 120  # 主点y
 
 # 手眼变换矩阵 (相机坐标系 → 基座坐标系)
 # 需要通过手眼标定获取，这里使用简化的偏移量
@@ -90,17 +90,17 @@ class CabinetScanner:
         self.cam = camera.Camera(CAM_WIDTH, CAM_HEIGHT)
         self.disp = display.Display()
         self.uart_comm = UARTComm()
+
+        # 初始化补光 LED (MaixCam2: B25/PWM6, 其他: A18/PWM6)
+        pin_name = "B25" if maix_sys.device_id() == "maixcam2" else "A18"
+        err.check_raise(pinmap.set_pin_function(pin_name, "PWM6"), "set fill light pinmap failed")
+        self.fill_light = pwm.PWM(6, freq=100000, duty=0, enable=True)
         print("[Scanner] Initialized")
 
     def detect_tags(self, img):
         """检测图像中的所有AprilTag"""
-        tags = img.find_apriltags(
-            families=APRILTAG_FAMILY,
-            fx=CAMERA_FX,
-            fy=CAMERA_FY,
-            cx=CAMERA_CX,
-            cy=CAMERA_CY
-        )
+        small = img.resize(160, 120)
+        tags = small.find_apriltags(families=APRILTAG_FAMILY)
         return tags
 
     def process_tag(self, tag):
@@ -131,6 +131,7 @@ class CabinetScanner:
         """
         print("\n[Scanner] Starting cabinet scan...")
 
+        self.fill_light.duty(80)
         # 多帧检测，取稳定结果
         all_results = {}
         SCAN_FRAMES = 10
@@ -180,6 +181,7 @@ class CabinetScanner:
                     'count': len(detections)
                 })
 
+        self.fill_light.duty(0)
         print(f"[Scanner] Found {len(final_results)} tags")
         return final_results
 
@@ -216,40 +218,49 @@ class CabinetScanner:
     def run_preview(self):
         """预览模式 - 只显示检测结果，不发送"""
         print("[Scanner] Preview mode - Press Ctrl+C to stop")
-
-        while True:
-            try:
+        self.fill_light.duty(80)
+        try:
+            while True:
                 img = self.cam.read()
                 tags = self.detect_tags(img)
 
+                sx = CAM_WIDTH / 160
+                sy = CAM_HEIGHT / 120
                 for tag in tags:
                     result = self.process_tag(tag)
 
-                    # 画框
                     corners = tag.corners()
                     for i in range(4):
                         img.draw_line(
-                            corners[i][0], corners[i][1],
-                            corners[(i+1)%4][0], corners[(i+1)%4][1],
+                            int(corners[i][0] * sx), int(corners[i][1] * sy),
+                            int(corners[(i+1)%4][0] * sx), int(corners[(i+1)%4][1] * sy),
                             image.COLOR_GREEN, 2
                         )
 
-                    # 显示信息
                     x, y, z = result['base']
-                    info1 = f"ID:{result['id']}"
-                    info2 = f"({x:.0f},{y:.0f},{z:.0f})"
-                    img.draw_string(tag.cx() - 30, tag.cy() - 25, info1, image.COLOR_RED)
-                    img.draw_string(tag.cx() - 40, tag.cy() + 10, info2, image.COLOR_BLUE)
+                    cx = int(tag.cx() * sx)
+                    cy = int(tag.cy() * sy)
+                    img.draw_string(cx - 30, cy - 25, f"ID:{result['id']}", image.COLOR_RED)
+                    img.draw_string(cx - 40, cy + 10, f"({x:.0f},{y:.0f},{z:.0f})", image.COLOR_BLUE)
 
-                # 显示检测数量
                 img.draw_string(10, 10, f"Tags: {len(tags)}", image.COLOR_WHITE)
+
+                # 标记真空泵顶端（手眼标定 TCP = 画面中心）
+                TCP_X = CAM_WIDTH // 2
+                TCP_Y = CAM_HEIGHT // 2
+                ARM = 20
+                img.draw_line(TCP_X - ARM, TCP_Y, TCP_X + ARM, TCP_Y, image.COLOR_YELLOW, 2)
+                img.draw_line(TCP_X, TCP_Y - ARM, TCP_X, TCP_Y + ARM, image.COLOR_YELLOW, 2)
+                img.draw_circle(TCP_X, TCP_Y, 5, image.COLOR_YELLOW, 2)
+                img.draw_string(TCP_X + 8, TCP_Y - 20, "TCP", image.COLOR_YELLOW)
 
                 self.disp.show(img)
                 time.sleep(0.05)
 
-            except KeyboardInterrupt:
-                print("\n[Scanner] Stopped")
-                break
+        except KeyboardInterrupt:
+            print("\n[Scanner] Stopped")
+        finally:
+            self.fill_light.duty(0)
 
 
 # ========== 主程序 ==========
@@ -277,11 +288,8 @@ def main():
         else:
             print(f"未知模式: {mode}")
     else:
-        # 默认单次扫描
-        results = scanner.run_once()
-        print("\n扫描结果:")
-        for r in results:
-            print(f"  ID={r['id']}: ({r['x']:.1f}, {r['y']:.1f}, {r['z']:.1f}) mm")
+        # 默认持续预览，直到手动关闭
+        scanner.run_preview()
 
 
 if __name__ == "__main__":

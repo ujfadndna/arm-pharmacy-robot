@@ -223,6 +223,15 @@ int motor_ctrl_step_init(void)
         g_tx_sem = xSemaphoreCreateBinaryStatic(&g_tx_sem_buffer);
     }
 
+    /* Force P401=CTX0, P402=CRX0 to CAN peripheral function */
+    R_BSP_PinAccessEnable();
+    /* P401: PSEL=CAN (0x10), PMR=1 (peripheral mode) */
+    R_PFS->PORT[4].PIN[1].PmnPFS = (uint32_t)(IOPORT_CFG_PERIPHERAL_PIN | IOPORT_PERIPHERAL_CAN);
+    /* P402: PSEL=CAN (0x10), PMR=1 (peripheral mode) */
+    R_PFS->PORT[4].PIN[2].PmnPFS = (uint32_t)(IOPORT_CFG_PERIPHERAL_PIN | IOPORT_PERIPHERAL_CAN);
+    R_BSP_PinAccessDisable();
+    debug_println("[CTRL_STEP] Forced P401/P402 to CAN peripheral");
+
     fsp_err_t err = R_CANFD_Open(&g_can0_ctrl, &g_can0_cfg);
     if ((FSP_SUCCESS != err) && (FSP_ERR_ALREADY_OPEN != err))
     {
@@ -554,4 +563,117 @@ uint8_t motor_ctrl_step_check_timeout(void)
     }
 
     return timeout_mask;
+}
+
+/* ========== CAN Loopback Self-Test ========== */
+
+static volatile bool g_cantest_rx_flag = false;
+static volatile uint32_t g_cantest_rx_id = 0;
+static volatile uint8_t g_cantest_rx_data0 = 0;
+
+/* Called from canfd_callback to detect loopback frame */
+void motor_ctrl_step_cantest_rx_check(uint32_t can_id, const uint8_t * data, uint8_t len)
+{
+    (void) len;
+    if (can_id == 0x7FFU && data[0] == 0xCA && data[1] == 0xFE)
+    {
+        g_cantest_rx_flag = true;
+        g_cantest_rx_id = can_id;
+        g_cantest_rx_data0 = data[0];
+    }
+}
+
+int motor_ctrl_step_can_loopback_test(void)
+{
+    fsp_err_t err;
+
+    /* Clean state: close and reopen CAN */
+    R_CANFD_Close(&g_can0_ctrl);
+    motor_ctrl_step_delay_us(5000);
+    err = R_CANFD_Open(&g_can0_ctrl, &g_can0_cfg);
+    if (FSP_SUCCESS != err)
+    {
+        debug_print("[CANTEST] Reopen failed err=");
+        debug_print_int((int) err);
+        debug_println("");
+        return -1;
+    }
+    motor_ctrl_step_delay_us(2000);
+
+    /* Prepare test frame */
+    can_frame_t tx_frame = {
+        .id = 0x7FFU,
+        .id_mode = CAN_ID_MODE_STANDARD,
+        .type = CAN_FRAME_TYPE_DATA,
+        .data_length_code = 8U,
+        .options = 0U
+    };
+    tx_frame.data[0] = 0xCA; tx_frame.data[1] = 0xFE;
+    tx_frame.data[2] = 0xBA; tx_frame.data[3] = 0xBE;
+    tx_frame.data[4] = 0xDE; tx_frame.data[5] = 0xAD;
+    tx_frame.data[6] = 0x00; tx_frame.data[7] = 0x01;
+
+    /* === Test 1: Internal loopback === */
+    debug_println("[CANTEST] Test1: Internal loopback");
+    g_cantest_rx_flag = false;
+    err = R_CANFD_ModeTransition(&g_can0_ctrl, CAN_OPERATION_MODE_NORMAL, CAN_TEST_MODE_LOOPBACK_INTERNAL);
+    if (FSP_SUCCESS != err)
+    {
+        debug_print("[CANTEST] Int mode fail err=");
+        debug_print_int((int) err);
+        debug_println("");
+    }
+    else
+    {
+        motor_ctrl_step_delay_us(2000);
+        err = R_CANFD_Write(&g_can0_ctrl, 0, &tx_frame);
+        if (FSP_SUCCESS == err)
+        {
+            for (int i = 0; i < 100; i++) { motor_ctrl_step_delay_us(1000); if (g_cantest_rx_flag) break; }
+            debug_println(g_cantest_rx_flag ? "[CANTEST] Int: PASS" : "[CANTEST] Int: FAIL");
+        }
+        else
+        {
+            debug_print("[CANTEST] Int TX fail err=");
+            debug_print_int((int) err);
+            debug_println("");
+        }
+        R_CANFD_ModeTransition(&g_can0_ctrl, CAN_OPERATION_MODE_NORMAL, CAN_TEST_MODE_DISABLED);
+        motor_ctrl_step_delay_us(2000);
+    }
+
+    /* === Test 2: External loopback === */
+    debug_println("[CANTEST] Test2: External loopback");
+    g_cantest_rx_flag = false;
+    err = R_CANFD_ModeTransition(&g_can0_ctrl, CAN_OPERATION_MODE_NORMAL, CAN_TEST_MODE_LOOPBACK_EXTERNAL);
+    if (FSP_SUCCESS != err)
+    {
+        debug_print("[CANTEST] Ext mode fail err=");
+        debug_print_int((int) err);
+        debug_println("");
+    }
+    else
+    {
+        motor_ctrl_step_delay_us(2000);
+        err = R_CANFD_Write(&g_can0_ctrl, 0, &tx_frame);
+        if (FSP_SUCCESS == err)
+        {
+            for (int i = 0; i < 100; i++) { motor_ctrl_step_delay_us(1000); if (g_cantest_rx_flag) break; }
+            debug_println(g_cantest_rx_flag ? "[CANTEST] Ext: PASS" : "[CANTEST] Ext: FAIL");
+        }
+        else
+        {
+            debug_print("[CANTEST] Ext TX fail err=");
+            debug_print_int((int) err);
+            debug_println("");
+        }
+    }
+
+    /* Restore normal mode */
+    R_CANFD_Close(&g_can0_ctrl);
+    motor_ctrl_step_delay_us(1000);
+    R_CANFD_Open(&g_can0_ctrl, &g_can0_cfg);
+
+    debug_println("[CANTEST] Done");
+    return 0;
 }

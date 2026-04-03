@@ -92,7 +92,7 @@
             #define configUSE_ALTERNATIVE_API (0U)
             #endif
             #ifndef configCHECK_FOR_STACK_OVERFLOW
-            #define configCHECK_FOR_STACK_OVERFLOW (0)
+            #define configCHECK_FOR_STACK_OVERFLOW (2)
             #endif
             #ifndef configQUEUE_REGISTRY_SIZE
             #define configQUEUE_REGISTRY_SIZE (10)
@@ -125,10 +125,10 @@
             #define configSUPPORT_STATIC_ALLOCATION (1)
             #endif
             #ifndef configSUPPORT_DYNAMIC_ALLOCATION
-            #define configSUPPORT_DYNAMIC_ALLOCATION (0)
+            #define configSUPPORT_DYNAMIC_ALLOCATION (1)
             #endif
             #ifndef configTOTAL_HEAP_SIZE
-            #define configTOTAL_HEAP_SIZE (1024)
+            #define configTOTAL_HEAP_SIZE (32768)
             #endif
             #ifndef configAPPLICATION_ALLOCATED_HEAP
             #define configAPPLICATION_ALLOCATED_HEAP (0)
@@ -152,7 +152,7 @@
             #define configTIMER_QUEUE_LENGTH (10)
             #endif
             #ifndef configTIMER_TASK_STACK_DEPTH
-            #define configTIMER_TASK_STACK_DEPTH (128)
+            #define configTIMER_TASK_STACK_DEPTH (256)
             #endif
             #ifndef configLIBRARY_LOWEST_INTERRUPT_PRIORITY
             #define configLIBRARY_LOWEST_INTERRUPT_PRIORITY ((1 << __NVIC_PRIO_BITS) - 1)

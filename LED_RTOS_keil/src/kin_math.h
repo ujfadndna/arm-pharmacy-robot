@@ -12,7 +12,7 @@
 #include <math.h>  /* 始终需要，用于atanf, fabsf等 */
 
 /* 选择数学库: 0=标准库, 1=快速库 */
-#define KIN_USE_FAST_MATH   1
+#define KIN_USE_FAST_MATH   0   /* 精确模式: IK无实时要求，用标准库避免累积误差 */
 
 #if KIN_USE_FAST_MATH
     #include "fast_math.h"
@@ -24,6 +24,7 @@
     #define kin_atan2f(y, x)        fast_atan2f(y, x)
     #define kin_sqrtf(x)            fast_sqrtf(x)
     #define kin_atanf(x)            atanf(x)  /* 暂用标准库 */
+    #define kin_acosf(x)            acosf(x)  /* 暂用标准库 */
     #define kin_fabsf(x)            fabsf(x)
 
 #else
@@ -33,6 +34,7 @@
     #define kin_atan2f(y, x)        atan2f(y, x)
     #define kin_sqrtf(x)            sqrtf(x)
     #define kin_atanf(x)            atanf(x)
+    #define kin_acosf(x)            acosf(x)
     #define kin_fabsf(x)            fabsf(x)
 
     /* 标准库没有sincosf，需要调用两次 */

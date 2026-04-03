@@ -46,7 +46,7 @@ static int lookup_medicine(const char *name, float *x, float *y, float *z)
  * @brief 从字符串中提取指定key后的浮点数
  * 例如: "\"x\": 120.5" 中提取 120.5
  */
-static float parse_float_after(const char *str, const char *key)
+float parse_float_after(const char *str, const char *key)
 {
     const char *p = strstr(str, key);
     if (!p) return 0.0f;
@@ -65,8 +65,8 @@ static float parse_float_after(const char *str, const char *key)
  * @brief 从字符串中提取指定key后的字符串值
  * 例如: "\"text\": \"hello\"" 中提取 hello
  */
-static int parse_string_after(const char *str, const char *key,
-                              char *out, int max_len)
+int parse_string_after(const char *str, const char *key,
+                       char *out, int max_len)
 {
     const char *p = strstr(str, key);
     if (!p) return -1;

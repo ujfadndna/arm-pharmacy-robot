@@ -7,6 +7,7 @@
  */
 
 #include "gripper.h"
+#include "vacuum_pump.h"
 #include "hal_data.h"
 #include <string.h>
 
@@ -99,36 +100,16 @@ int gripper_set_angle(uint8_t angle)
 
 int vacuum_on(void)
 {
-    if (!g_initialized) return -1;
-
-    /* 协议: {0xAD, 0x01} */
-    uint8_t data[2] = {
-        GRIPPER_CMD_VACUUM,
-        0x01            /* 开启 */
-    };
-
-    int ret = gripper_can_send(data, 2);
-    if (ret == 0) {
-        g_vacuum_state = true;
-    }
-    return ret;
+    vacuum_pump_on();
+    g_vacuum_state = true;
+    return 0;
 }
 
 int vacuum_off(void)
 {
-    if (!g_initialized) return -1;
-
-    /* 协议: {0xAD, 0x00} */
-    uint8_t data[2] = {
-        GRIPPER_CMD_VACUUM,
-        0x00            /* 关闭 */
-    };
-
-    int ret = gripper_can_send(data, 2);
-    if (ret == 0) {
-        g_vacuum_state = false;
-    }
-    return ret;
+    vacuum_pump_off();
+    g_vacuum_state = false;
+    return 0;
 }
 
 void gripper_rx_callback(uint32_t can_id, const uint8_t *data, uint8_t len)

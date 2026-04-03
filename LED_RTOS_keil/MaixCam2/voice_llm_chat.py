@@ -503,8 +503,8 @@ class VoiceLLMChat:
         try:
             device_id = sys.device_id()
             if device_id == "maixcam2":
-                pin_function = {"A21": "UART4_TX", "A22": "UART4_RX"}
-                device = "/dev/ttyS4"
+                pin_function = {"A30": "UART1_TX", "A31": "UART1_RX"}
+                device = "/dev/ttyS1"
             else:
                 pin_function = {"A16": "UART0_TX", "A17": "UART0_RX"}
                 device = "/dev/ttyS0"

@@ -4,8 +4,7 @@
  */
 
 #include "visual_servo.h"
-// #include "maixcam_driver.h"  /* TODO: 待实现 MaixCam 驱动后启用 */
-static inline void maixcam_send_string(const char *s) { (void)s; }
+#include "maixcam_uart.h"
 #include "motion_controller.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -69,8 +68,6 @@ void visual_servo_init(void)
 
 int visual_servo_request_align(int target_id)
 {
-    char cmd[32];
-
     /* 清空之前的结果 */
     g_align_result.success = false;
     g_vs_state = VS_WAITING_ALIGN;
@@ -79,8 +76,7 @@ int visual_servo_request_align(int target_id)
     xSemaphoreTake(g_align_sem, 0);
 
     /* 发送精定位请求 */
-    snprintf(cmd, sizeof(cmd), "ALIGN:%d\n", target_id);
-    maixcam_send_string(cmd);
+    maixcam_uart_send_req_align((uint8_t)target_id, 0, 0);
 
     return 0;
 }
@@ -191,4 +187,21 @@ int visual_servo_align(int target_id, float *current_x, float *current_y)
 vs_state_t visual_servo_get_state(void)
 {
     return g_vs_state;
+}
+
+void vs_on_align_ok(const mc_align_ok_t *r)
+{
+    g_align_result.success = true;
+    g_align_result.dx = r->dx;
+    g_align_result.dy = r->dy;
+    xSemaphoreGive(g_align_sem);
+}
+
+void vs_on_align_fail(const mc_align_fail_t *r)
+{
+    (void)r;
+    g_align_result.success = false;
+    g_align_result.dx = 0;
+    g_align_result.dy = 0;
+    xSemaphoreGive(g_align_sem);
 }

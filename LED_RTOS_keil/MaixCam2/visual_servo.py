@@ -35,8 +35,8 @@ CX = CAM_WIDTH // 2
 CY = CAM_HEIGHT // 2
 
 # 手眼偏移
-OFFSET_X = 0.0
-OFFSET_Y = 0.0
+OFFSET_X = -4.6   # 标定结果 (相机->吸嘴 X, mm)
+OFFSET_Y = 0.3    # 标定结果 (相机->吸嘴 Y, mm)
 OFFSET_Z = 50.0
 
 # 精定位配置
@@ -63,8 +63,8 @@ def init_uart():
     device_id = sys.device_id()
 
     if device_id == "maixcam2":
-        pin_function = {"A21": "UART4_TX", "A22": "UART4_RX"}
-        device = "/dev/ttyS4"
+        pin_function = {"A30": "UART1_TX", "A31": "UART1_RX"}
+        device = "/dev/ttyS1"
     else:
         pin_function = {"A16": "UART0_TX", "A17": "UART0_RX"}
         device = "/dev/ttyS0"

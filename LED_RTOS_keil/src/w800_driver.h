@@ -152,6 +152,18 @@ int w800_call_llm_organize(const char *state, const char *user_cmd,
 void w800_rx_byte(uint8_t byte);
 
 /**
+ * @brief 处理待执行的 JSON 命令 (在任务上下文周期调用)
+ * @note  为避免在 UART ISR 中执行阻塞操作，w800_rx_byte 仅入队 JSON 命令，
+ *        实际处理在此函数中完成。函数会在一次调用中尽量清空待处理队列。
+ */
+void w800_process_pending_cmd(void);
+
+/**
+ * @brief 处理ISR延迟通知 (IP等，在任务上下文中打印)
+ */
+void w800_poll_notifications(void);
+
+/**
  * @brief UART发送完成回调
  */
 void w800_tx_complete(void);
@@ -212,6 +224,17 @@ int w800_get_local_ip(char *ip_buf, uint32_t buf_len);
  * @deprecated 直接协议模式不使用此接口
  */
 int W800_UART_Send(const uint8_t *data, uint32_t len);
+
+/* ========== MaixCam2 WiFi 透传接口 ========== */
+
+/**
+ * @brief 通过W800 UDP向MaixCam2发送二进制帧
+ * @param data  原始二进制帧 (0xAA 0x55 ...)
+ * @param len   数据长度（最大128字节）
+ * @return 0=成功, -1=参数错误
+ * @note  需要MaixCam2先发过一个UDP包，W800才知道其IP（首次通信方向为MaixCam2→RA6M5）
+ */
+int w800_mc_send(const uint8_t *data, uint32_t len);
 
 /* ========== 调试接口 ========== */
 

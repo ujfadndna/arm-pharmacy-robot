@@ -659,6 +659,8 @@ void canfd_callback(can_callback_args_t *p_args)
         motor_can_rx_callback(p_args->frame.id, p_args->frame.data, p_args->frame.data_length_code);
         /* 同时分发给 ctrl_step 驱动 */
         motor_ctrl_step_rx_callback(p_args->frame.id, p_args->frame.data, p_args->frame.data_length_code);
+        /* cantest 回环检测 */
+        motor_ctrl_step_cantest_rx_check(p_args->frame.id, p_args->frame.data, p_args->frame.data_length_code);
     } else if (p_args->event == CAN_EVENT_TX_COMPLETE) {
         /* dummy 驱动的 TX 完成 */
         canfd_tx_callback(p_args);

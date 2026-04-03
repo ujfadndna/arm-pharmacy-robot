@@ -132,12 +132,12 @@
             <UseTargetDll>1</UseTargetDll>
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
-            <UpdateFlashBeforeDebugging>0</UpdateFlashBeforeDebugging>
+            <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
             <DriverSelection>-1</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
-          <Flash2></Flash2>
+          <Flash2>BIN\UL2V8M.DLL</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
@@ -434,6 +434,46 @@
               <FileType>1</FileType>
               <FilePath>.\src\motor_test.c</FilePath>
             </File>
+            <File>
+              <FileName>usb_host_cdc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usb_host_cdc.c</FilePath>
+            </File>
+            <File>
+              <FileName>dummy_arm_cmd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\dummy_arm_cmd.c</FilePath>
+            </File>
+            <File>
+              <FileName>drv_iic0.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\drv_iic0.c</FilePath>
+            </File>
+            <File>
+              <FileName>wm8960.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\wm8960.c</FilePath>
+            </File>
+            <File>
+              <FileName>drv_ssi0.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\drv_ssi0.c</FilePath>
+            </File>
+            <File>
+              <FileName>audio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\audio.c</FilePath>
+            </File>
+            <File>
+              <FileName>flash_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\flash_storage.c</FilePath>
+            </File>
+            <File>
+              <FileName>vacuum_pump.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\vacuum_pump.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -490,6 +530,11 @@
               <FilePath>.\src\w800_driver.c</FilePath>
             </File>
             <File>
+              <FileName>w800_cmd_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\w800_cmd_handler.c</FilePath>
+            </File>
+            <File>
               <FileName>app_common.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\src\app_common.h</FilePath>
@@ -528,6 +573,11 @@
               <FileName>w800_driver.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\src\w800_driver.h</FilePath>
+            </File>
+            <File>
+              <FileName>w800_cmd_handler.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\w800_cmd_handler.h</FilePath>
             </File>
             <File>
               <FileName>debug_uart.c</FileName>
@@ -778,6 +828,91 @@
               <FileName>visual_servo.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\src\visual_servo.h</FilePath>
+            </File>
+            <File>
+              <FileName>dummy_arm_cmd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\dummy_arm_cmd.c</FilePath>
+            </File>
+            <File>
+              <FileName>dummy_arm_cmd.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\dummy_arm_cmd.h</FilePath>
+            </File>
+            <File>
+              <FileName>usb_host_cdc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usb_host_cdc.c</FilePath>
+            </File>
+            <File>
+              <FileName>usb_host_cdc.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\usb_host_cdc.h</FilePath>
+            </File>
+            <File>
+              <FileName>usb_host_cdc_rasc_guide.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\usb_host_cdc_rasc_guide.h</FilePath>
+            </File>
+            <File>
+              <FileName>audio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\audio.c</FilePath>
+            </File>
+            <File>
+              <FileName>audio.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\audio.h</FilePath>
+            </File>
+            <File>
+              <FileName>drv_iic0.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\drv_iic0.c</FilePath>
+            </File>
+            <File>
+              <FileName>drv_iic0.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\drv_iic0.h</FilePath>
+            </File>
+            <File>
+              <FileName>drv_ssi0.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\drv_ssi0.c</FilePath>
+            </File>
+            <File>
+              <FileName>drv_ssi0.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\drv_ssi0.h</FilePath>
+            </File>
+            <File>
+              <FileName>wm8960.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\wm8960.c</FilePath>
+            </File>
+            <File>
+              <FileName>wm8960.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\wm8960.h</FilePath>
+            </File>
+            <File>
+              <FileName>maixcam_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\maixcam_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>maixcam_uart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\maixcam_uart.h</FilePath>
+            </File>
+            <File>
+              <FileName>slot_teach.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\slot_teach.c</FilePath>
+            </File>
+            <File>
+              <FileName>slot_teach.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\src\slot_teach.h</FilePath>
             </File>
           </Files>
         </Group>

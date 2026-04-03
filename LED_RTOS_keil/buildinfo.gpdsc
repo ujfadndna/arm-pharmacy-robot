@@ -15,6 +15,8 @@
         <file category="header" name="src/app_common.h" path=""/>
         <file category="source" name="src/arm_mat_init_f32.c"/>
         <file category="source" name="src/arm_mat_mult_f32.c"/>
+        <file category="source" name="src/audio.c"/>
+        <file category="header" name="src/audio.h" path=""/>
         <file category="source" name="src/cabinet_config.c"/>
         <file category="header" name="src/cabinet_config.h" path=""/>
         <file category="source" name="src/cabinet_demo.c"/>
@@ -30,6 +32,12 @@
         <file category="header" name="src/debug_uart.h" path=""/>
         <file category="source" name="src/degradation.c"/>
         <file category="header" name="src/degradation.h" path=""/>
+        <file category="source" name="src/drv_iic0.c"/>
+        <file category="header" name="src/drv_iic0.h" path=""/>
+        <file category="source" name="src/drv_ssi0.c"/>
+        <file category="header" name="src/drv_ssi0.h" path=""/>
+        <file category="source" name="src/dummy_arm_cmd.c"/>
+        <file category="header" name="src/dummy_arm_cmd.h" path=""/>
         <file category="source" name="src/fast_math.c"/>
         <file category="header" name="src/fast_math.h" path=""/>
         <file category="source" name="src/freertos_hooks.c"/>
@@ -45,6 +53,8 @@
         <file category="header" name="src/llm_test.h" path=""/>
         <file category="source" name="src/log.c"/>
         <file category="header" name="src/log.h" path=""/>
+        <file category="source" name="src/maixcam_uart.c"/>
+        <file category="header" name="src/maixcam_uart.h" path=""/>
         <file category="source" name="src/medicine_db.c"/>
         <file category="header" name="src/medicine_db.h" path=""/>
         <file category="source" name="src/motion_controller.c"/>
@@ -64,19 +74,28 @@
         <file category="header" name="src/pid_tuner.h" path=""/>
         <file category="source" name="src/rtmon.c"/>
         <file category="header" name="src/rtmon.h" path=""/>
+        <file category="source" name="src/slot_teach.c"/>
+        <file category="header" name="src/slot_teach.h" path=""/>
         <file category="source" name="src/taskmon.c"/>
         <file category="header" name="src/taskmon.h" path=""/>
         <file category="source" name="src/trajectory.c"/>
         <file category="header" name="src/trajectory.h" path=""/>
+        <file category="source" name="src/usb_host_cdc.c"/>
+        <file category="header" name="src/usb_host_cdc.h" path=""/>
+        <file category="header" name="src/usb_host_cdc_rasc_guide.h" path=""/>
         <file category="header" name="src/vision_protocol.h" path=""/>
         <file category="source" name="src/vision_wifi.c"/>
         <file category="header" name="src/vision_wifi.h" path=""/>
         <file category="source" name="src/visual_servo.c"/>
         <file category="header" name="src/visual_servo.h" path=""/>
+        <file category="source" name="src/w800_cmd_handler.c"/>
+        <file category="header" name="src/w800_cmd_handler.h" path=""/>
         <file category="source" name="src/w800_driver.c"/>
         <file category="header" name="src/w800_driver.h" path=""/>
         <file category="source" name="src/watchdog.c"/>
         <file category="header" name="src/watchdog.h" path=""/>
+        <file category="source" name="src/wm8960.c"/>
+        <file category="header" name="src/wm8960.h" path=""/>
         <file category="source" name="src/zdt_test.c"/>
         <file category="header" name="src/zdt_test.h" path=""/>
       </project_files>
@@ -90,6 +109,8 @@
         <file category="include" name="ra/fsp/inc/"/>
         <file category="include" name="ra/fsp/inc/api/"/>
         <file category="include" name="ra/fsp/inc/instances/"/>
+        <file category="include" name="ra/fsp/src/r_usb_basic/src/driver/inc/"/>
+        <file category="include" name="ra/fsp/src/r_usb_hcdc/src/inc/"/>
         <file category="include" name="ra/fsp/src/rm_freertos_port/"/>
         <file category="header" name="ra/arm/CMSIS_6/CMSIS/Core/Include/a-profile/cmsis_armclang_a.h" path=""/>
         <file category="header" name="ra/arm/CMSIS_6/CMSIS/Core/Include/a-profile/cmsis_clang_a.h" path=""/>
@@ -202,6 +223,7 @@
         <file category="header" name="ra/aws/FreeRTOS/FreeRTOS/Source/include/timers.h" path=""/>
         <file category="other" name="ra/aws/FreeRTOS/FreeRTOS/Source/LICENSE.md"/>
         <file category="source" name="ra/aws/FreeRTOS/FreeRTOS/Source/list.c"/>
+        <file category="source" name="ra/aws/FreeRTOS/FreeRTOS/Source/portable/MemMang/heap_4.c"/>
         <file category="source" name="ra/aws/FreeRTOS/FreeRTOS/Source/queue.c"/>
         <file category="source" name="ra/aws/FreeRTOS/FreeRTOS/Source/stream_buffer.c"/>
         <file category="source" name="ra/aws/FreeRTOS/FreeRTOS/Source/tasks.c"/>
@@ -210,17 +232,24 @@
         <file category="header" name="ra/fsp/inc/api/bsp_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/api/fsp_common_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/api/r_can_api.h" path=""/>
+        <file category="header" name="ra/fsp/inc/api/r_cgc_api.h" path=""/>
+        <file category="header" name="ra/fsp/inc/api/r_flash_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/api/r_ioport_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/api/r_timer_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/api/r_transfer_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/api/r_uart_api.h" path=""/>
+        <file category="header" name="ra/fsp/inc/api/r_usb_basic_api.h" path=""/>
+        <file category="header" name="ra/fsp/inc/api/r_usb_hcdc_api.h" path=""/>
         <file category="header" name="ra/fsp/inc/fsp_features.h" path=""/>
         <file category="header" name="ra/fsp/inc/fsp_version.h" path=""/>
         <file category="header" name="ra/fsp/inc/instances/r_canfd.h" path=""/>
         <file category="header" name="ra/fsp/inc/instances/r_dtc.h" path=""/>
+        <file category="header" name="ra/fsp/inc/instances/r_flash_hp.h" path=""/>
         <file category="header" name="ra/fsp/inc/instances/r_gpt.h" path=""/>
         <file category="header" name="ra/fsp/inc/instances/r_ioport.h" path=""/>
         <file category="header" name="ra/fsp/inc/instances/r_sci_uart.h" path=""/>
+        <file category="header" name="ra/fsp/inc/instances/r_usb_basic.h" path=""/>
+        <file category="header" name="ra/fsp/inc/instances/r_usb_hcdc.h" path=""/>
         <file category="header" name="ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/R7FA6M5BH.h" path=""/>
         <file category="header" name="ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/renesas.h" path=""/>
         <file category="header" name="ra/fsp/src/bsp/cmsis/Device/RENESAS/Include/system.h" path=""/>
@@ -266,9 +295,54 @@
         <file category="header" name="ra/fsp/src/rm_freertos_port/portmacro.h" path=""/>
         <file category="source" name="ra/fsp/src/r_canfd/r_canfd.c"/>
         <file category="source" name="ra/fsp/src/r_dtc/r_dtc.c"/>
+        <file category="source" name="ra/fsp/src/r_flash_hp/r_flash_hp.c"/>
         <file category="source" name="ra/fsp/src/r_gpt/r_gpt.c"/>
         <file category="source" name="ra/fsp/src/r_ioport/r_ioport.c"/>
         <file category="source" name="ra/fsp/src/r_sci_uart/r_sci_uart.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/r_usb_basic.c"/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/driver/inc/r_usb_basic_define.h" path=""/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/driver/inc/r_usb_cstd_rtos.h" path=""/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/driver/inc/r_usb_extern.h" path=""/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/driver/inc/r_usb_typedef.h" path=""/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_cdataio.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_clibusbip.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_cstd_rtos.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hbc.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hcontrolrw.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hdriver.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hhubsys.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hintfifo.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hinthandler_usbip0.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hinthandler_usbip1.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hlibusbip.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hmanager.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hscheduler.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hsignal.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_hstdfunction.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pbc.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pcontrolrw.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pdriver.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pintfifo.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pinthandler_usbip0.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_plibusbip.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_psignal.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pstdfunction.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/driver/r_usb_pstdrequest.c"/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/hw/inc/r_usb_bitdefine.h" path=""/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/hw/inc/r_usb_dmac.h" path=""/>
+        <file category="header" name="ra/fsp/src/r_usb_basic/src/hw/inc/r_usb_reg_access.h" path=""/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_creg_abs.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_creg_access.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_dma.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_hostelectrical.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_hreg_abs.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_hreg_access.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_mcu.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_preg_abs.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_basic/src/hw/r_usb_preg_access.c"/>
+        <file category="source" name="ra/fsp/src/r_usb_hcdc/r_usb_hcdc.c"/>
+        <file category="header" name="ra/fsp/src/r_usb_hcdc/src/inc/r_usb_hcdc_driver.h" path=""/>
+        <file category="source" name="ra/fsp/src/r_usb_hcdc/src/r_usb_hcdc_driver.c"/>
       </files>
     </component>
     <component Cclass="Flex Software" Cgroup="Build Configuration">
@@ -286,9 +360,13 @@
         <file category="header" name="ra_cfg/fsp_cfg/bsp/bsp_pin_cfg.h" path=""/>
         <file category="header" name="ra_cfg/fsp_cfg/r_canfd_cfg.h" path=""/>
         <file category="header" name="ra_cfg/fsp_cfg/r_dtc_cfg.h" path=""/>
+        <file category="header" name="ra_cfg/fsp_cfg/r_flash_hp_cfg.h" path=""/>
         <file category="header" name="ra_cfg/fsp_cfg/r_gpt_cfg.h" path=""/>
         <file category="header" name="ra_cfg/fsp_cfg/r_ioport_cfg.h" path=""/>
         <file category="header" name="ra_cfg/fsp_cfg/r_sci_uart_cfg.h" path=""/>
+        <file category="header" name="ra_cfg/fsp_cfg/r_usb_basic_cfg.h" path=""/>
+        <file category="header" name="ra_cfg/fsp_cfg/r_usb_class_cfg.h" path=""/>
+        <file category="header" name="ra_cfg/fsp_cfg/r_usb_hcdc_cfg.h" path=""/>
       </files>
     </component>
     <component Cclass="Flex Software" Cgroup="Generated Data">

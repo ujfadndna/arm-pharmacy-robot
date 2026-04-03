@@ -29,7 +29,7 @@
     <node id="board.clock.pll2.display" option="board.clock.pll2.display.value"/>
     <node id="board.clock.clock.source" option="board.clock.clock.source.pll"/>
     <node id="board.clock.clkout.source" option="board.clock.clkout.source.disabled"/>
-    <node id="board.clock.uclk.source" option="board.clock.uclk.source.disabled"/>
+    <node id="board.clock.uclk.source" option="board.clock.uclk.source.pll2"/>
     <node id="board.clock.u60ck.source" option="board.clock.u60ck.source.disabled"/>
     <node id="board.clock.octaspiclk.source" option="board.clock.octaspiclk.source.disabled"/>
     <node id="board.clock.canfdclk.source" option="board.clock.octaspiclk.source.pll2"/>
@@ -69,6 +69,8 @@
       <configSetting altId="can0.ctx.p401" configurationId="can0.ctx" peripheral="CANFD0"/>
       <configSetting altId="debug0.swclk.p300" configurationId="debug0.swclk" isUsedByDriver="true" peripheral="DEBUG0"/>
       <configSetting altId="debug0.swdio.p108" configurationId="debug0.swdio" isUsedByDriver="true" peripheral="DEBUG0"/>
+      <configSetting altId="iic2.scl.p415" configurationId="iic2.scl" peripheral="IIC2"/>
+      <configSetting altId="iic2.sda.p414" configurationId="iic2.sda" peripheral="IIC2"/>
       <configSetting altId="p400.output.low" configurationId="p400"/>
       <configSetting altId="p508.output.high" configurationId="p508"/>
       <configSetting altId="sci4.rxd.p511" configurationId="sci4.rxd" isUsedByDriver="true" peripheral="SCI4"/>
@@ -77,6 +79,14 @@
       <configSetting altId="sci6.txd.p506" configurationId="sci6.txd" isUsedByDriver="true" peripheral="SCI6"/>
       <configSetting altId="sci7.rxd.p614" configurationId="sci7.rxd" isUsedByDriver="true" peripheral="SCI7"/>
       <configSetting altId="sci7.txd.p613" configurationId="sci7.txd" isUsedByDriver="true" peripheral="SCI7"/>
+      <configSetting altId="sci9.rxd.p601" configurationId="sci9.rxd" isUsedByDriver="true" peripheral="SCI9"/>
+      <configSetting altId="sci9.txd.p602" configurationId="sci9.txd" isUsedByDriver="true" peripheral="SCI9"/>
+      <configSetting altId="ssi0.ssirxd.p406" configurationId="ssi0.ssirxd" peripheral="SSI0"/>
+      <configSetting altId="ssi0.ssisck.p112" configurationId="ssi0.ssisck" peripheral="SSI0"/>
+      <configSetting altId="ssi0.ssitxd.p115" configurationId="ssi0.ssitxd" peripheral="SSI0"/>
+      <configSetting altId="ssi0.ssiws.p113" configurationId="ssi0.ssiws" peripheral="SSI0"/>
+      <configSetting altId="usbhs0.ovrcura.p707" configurationId="usbhs0.ovrcura" isUsedByDriver="true" peripheral="USB_HS0"/>
+      <configSetting altId="usbhs0.vbusen.pb00" configurationId="usbhs0.vbusen" isUsedByDriver="true" peripheral="USB_HS0"/>
     </pincfg>
   </raPinConfiguration>
 </raConfiguration>

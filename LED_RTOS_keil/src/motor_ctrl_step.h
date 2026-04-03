@@ -173,6 +173,22 @@ void motor_ctrl_step_tx_complete_notify(void);
  */
 uint8_t motor_ctrl_step_check_timeout(void);
 
+/**
+ * @brief Check if a received CAN frame is the cantest loopback frame.
+ * Called from canfd_callback ISR context.
+ */
+void motor_ctrl_step_cantest_rx_check(uint32_t can_id, const uint8_t * data, uint8_t len);
+
+/**
+ * @brief CAN loopback self-test.
+ *
+ * Switches CAN to internal loopback mode, sends a test frame, checks if it
+ * loops back. Restores normal mode afterwards.
+ *
+ * @return 0 = PASS, -1 = TX error, -2 = no loopback RX.
+ */
+int motor_ctrl_step_can_loopback_test(void);
+
 #ifdef __cplusplus
 }
 #endif

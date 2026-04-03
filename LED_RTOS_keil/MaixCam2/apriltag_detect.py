@@ -49,10 +49,10 @@ def init_uart():
 
     if device_id == "maixcam2":
         pin_function = {
-            "A21": "UART4_TX",
-            "A22": "UART4_RX"
+            "A30": "UART1_TX",
+            "A31": "UART1_RX"
         }
-        device = "/dev/ttyS4"
+        device = "/dev/ttyS1"
     else:
         # MaixCam (K210)
         pin_function = {

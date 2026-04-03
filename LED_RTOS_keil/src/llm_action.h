@@ -65,6 +65,25 @@ typedef struct {
 int llm_parse_json(const char *json, llm_action_sequence_t *seq);
 
 /**
+ * @brief 从字符串中提取指定 key 后的浮点数
+ * @param str 输入字符串
+ * @param key 例如 "\"x\""
+ * @return 解析后的浮点值；未找到时返回 0.0f
+ */
+float parse_float_after(const char *str, const char *key);
+
+/**
+ * @brief 从字符串中提取指定 key 后的字符串值
+ * @param str 输入字符串
+ * @param key 例如 "\"cmd\""
+ * @param out 输出缓冲区
+ * @param max_len 输出缓冲区长度
+ * @return 提取到的字符数；失败返回 -1
+ */
+int parse_string_after(const char *str, const char *key,
+                       char *out, int max_len);
+
+/**
  * @brief 获取动作类型的字符串表示
  */
 const char* llm_action_type_str(action_type_t type);

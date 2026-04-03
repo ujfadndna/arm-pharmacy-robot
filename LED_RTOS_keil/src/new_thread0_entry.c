@@ -4,72 +4,93 @@
 #include "app_common.h"
 #include "w800_driver.h"
 #include "debug_uart.h"
-#include "llm_action.h"
+/* #include "llm_action.h" */  /* LLM disabled */
 #include "motion_controller.h"
-#include "motor_ctrl_step.h"
+#include "visual_servo.h"
 #include "gripper.h"
 #include "watchdog.h"
-#include "zdt_test.h"
 #include "rtmon.h"
 #include "taskmon.h"
 #include "degradation.h"
-#include "motor_test.h"
+#include "dummy_arm_cmd.h"
+#include "usb_host_cdc.h"
+#include "audio.h"
+#include "drv_iic0.h"
+#include "maixcam_uart.h"
+#include "slot_teach.h"
+#include "vacuum_pump.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
-/* ========== 看门狗配置 ========== */
-#define WATCHDOG_ENABLED    1   /* 1=启用看门狗, 0=禁用(调试时) */
+/* ========== 看门狗配�?========== */
+#define WATCHDOG_ENABLED    1   /* 1=启用看门�? 0=禁用(调试�? */
 
 #define LED_PIN BSP_IO_PORT_04_PIN_00
 
-/* ========== LLM响应缓冲区 ========== */
-#define LLM_RESP_BUF_SIZE 1024  /* 原512，增大以支持云端LLM响应 */
+/* ========== LLM响应缓冲�?(LLM disabled) ========== */
+#if 0
+#define LLM_RESP_BUF_SIZE 1024
 static char g_llm_response[LLM_RESP_BUF_SIZE];
 static volatile uint16_t g_llm_resp_idx = 0;
 static volatile bool g_llm_resp_ready = false;
+#endif
 
-/* ========== 动作序列 ========== */
+/* ========== 动作序列 (LLM disabled) ========== */
+#if 0
 static llm_action_sequence_t g_action_seq;
-static bool g_executing_sequence = false;  /* 是否正在执行动作序列 */
-static bool g_collision_detected = false;  /* 碰撞检测标志 */
+static bool g_executing_sequence = false;
+#endif
+static bool g_arm_passthrough_enabled = false; /* 是否允许!/#/>/@直通命�?*/
 
-/* ========== 碰撞检测配置 ========== */
-#define COLLISION_CONFIRM_COUNT  2   /* 连续检测次数阈值 (2次 x 10ms = 20ms) */
-static uint8_t g_stall_count[6] = {0};  /* 每个电机的连续堵转计数 */
+/* ========== 硬件定时器运动控�?========== */
+static volatile bool g_motion_tick = false;  /* 5ms定时器触发标�?*/
 
-/* ========== 硬件定时器运动控制 ========== */
-static volatile bool g_motion_tick = false;  /* 5ms定时器触发标志 */
+extern void vs_on_align_ok(const mc_align_ok_t *r);
+extern void vs_on_align_fail(const mc_align_fail_t *r);
+
+static maixcam_uart_callbacks_t g_mc_callbacks = {
+    .on_align_ok   = vs_on_align_ok,
+    .on_align_fail = vs_on_align_fail,
+};
 
 /**
- * @brief GPT定时器回调 - 5ms周期触发运动控制
- * 在中断中设置标志，主循环中处理
+ * @brief GPT定时器回�?- 5ms周期触发
+ * 保留用于看门狗喂狗和心跳LED
  */
 void motion_timer_callback(timer_callback_args_t *p_args)
 {
     if (TIMER_EVENT_CYCLE_END == p_args->event) {
         rtmon_tick(5000);  /* Record timestamp for jitter monitoring, 5ms=5000us */
         g_motion_tick = true;
+
+        /* LED 心跳 — 在定时器 ISR 中直接控制，独立于主循环阻塞
+         * R_IOPORT_PinWrite 是纯寄存器操作，ISR 安全。
+         * 周期：100 × 5ms = 500ms；ON = 0~49tick，OFF = 50~99tick */
+        static uint32_t s_led_counter = 0;
+        s_led_counter++;
+        if (s_led_counter >= 100U) {
+            s_led_counter = 0U;
+            R_IOPORT_PinWrite(&g_ioport_ctrl, LED_PIN, BSP_IO_LEVEL_HIGH);
+        } else if (s_led_counter == 50U) {
+            R_IOPORT_PinWrite(&g_ioport_ctrl, LED_PIN, BSP_IO_LEVEL_LOW);
+        }
     }
 }
 
-/* W800接收数据回调 - 存储从PC返回的LLM响应 */
+/* W800接收数据回调 - LLM disabled, unused */
+#if 0
 static void w800_data_received(const uint8_t *data, uint32_t len)
 {
     for (uint32_t i = 0; i < len; i++) {
         char ch = (char)data[i];
-
-        /* 调试：打印收到的每个字符 */
-        if (g_llm_resp_idx == 0) {
-            /* 首次收到数据，打印提示 */
-        }
 
         if (g_llm_resp_idx < LLM_RESP_BUF_SIZE - 1) {
             g_llm_response[g_llm_resp_idx++] = ch;
             g_llm_response[g_llm_resp_idx] = '\0';
         }
     }
-    /* 简单判断：收到 ']' 或 '}' 结尾可能是JSON完整 */
     if (g_llm_resp_idx > 0) {
         char last = g_llm_response[g_llm_resp_idx - 1];
         if (last == ']' || last == '}') {
@@ -77,8 +98,11 @@ static void w800_data_received(const uint8_t *data, uint32_t len)
         }
     }
 }
+#endif
 
-/* 执行单个动作 (返回true表示需要等待运动完成) */
+/* LLM disabled: execute_action / execute_next_action / process_llm_response / send_command_to_llm */
+#if 0
+/* 执行单个动作 (返回true表示需要等待运动完�? */
 static bool execute_action(const llm_action_t *action)
 {
     debug_print("[EXEC] ");
@@ -93,11 +117,13 @@ static bool execute_action(const llm_action_t *action)
             debug_print(" z=");
             debug_print_int((int)action->params.move.z);
             debug_println("");
-            /* 调用运动控制器 */
+            /* 调用运动控制�?(已切换到USB后端) */
             if (motion_move_to_xyz(action->params.move.x,
                                    action->params.move.y,
                                    action->params.move.z) == 0) {
-                return true;  /* 需要等待运动完成 */
+                /* motion_move_to_xyz内部会等待到位后返回�?
+                 * 这里不需要额外异步等�?*/
+                return false;
             }
             break;
 
@@ -114,22 +140,23 @@ static bool execute_action(const llm_action_t *action)
         case ACTION_SPEAK:
             debug_print("  -> Say: ");
             debug_println(action->params.speak.text);
-            /* TODO: TTS播报 */
+            maixcam_uart_send_speak(action->params.speak.text,
+                                    (uint8_t)strlen(action->params.speak.text));
             break;
 
         case ACTION_SCAN_QR:
             debug_println("  -> Scanning QR...");
-            /* TODO: 触发MaixCam2扫描 */
+            maixcam_uart_send_req_qr(5000);
             break;
 
         default:
             debug_println("  -> Unknown action");
             break;
     }
-    return false;  /* 不需要等待 */
+    return false;  /* 不需要等�?*/
 }
 
-/* 执行下一个动作 */
+/* 执行下一个动�?*/
 static void execute_next_action(void)
 {
     while (g_action_seq.current < g_action_seq.count) {
@@ -137,14 +164,14 @@ static void execute_next_action(void)
         g_action_seq.current++;
 
         if (need_wait) {
-            /* 需要等待运动完成 */
+            /* 需要等待运动完�?*/
             return;
         }
-        /* 不需要等待，继续下一个动作 */
+        /* 不需要等待，继续下一个动�?*/
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 
-    /* 所有动作完成 */
+    /* 所有动作完�?*/
     g_executing_sequence = false;
     debug_println("[SEQ] All actions done");
 }
@@ -166,7 +193,7 @@ static void process_llm_response(const char *json)
     debug_print_int(g_action_seq.count);
     debug_println(" action(s)");
 
-    /* 开始执行动作序列 */
+    /* 开始执行动作序�?*/
     g_action_seq.current = 0;
     g_executing_sequence = true;
     execute_next_action();
@@ -194,7 +221,7 @@ static int send_command_to_llm(const char *cmd)
         debug_println(" bytes):");
         debug_println(response);
 
-        /* 解析并执行动作 */
+        /* 解析并执行动�?*/
         process_llm_response(response);
         return 0;
     } else {
@@ -204,6 +231,7 @@ static int send_command_to_llm(const char *cmd)
         return ret;
     }
 }
+#endif /* LLM disabled */
 
 static void log_motion_command_result(const char *tag, int ret)
 {
@@ -220,87 +248,152 @@ static void log_motion_command_result(const char *tag, int ret)
     }
 }
 
-static int ctrl_step_get_stall_status(uint8_t joint_index)
+/* Print current joint positions from Dummy ARM for debug */
+static void print_joint_state(const char *label)
 {
-    if (joint_index >= MOTOR_CTRL_STEP_NUM_JOINTS) {
-        return -1;
-    }
+    if (!usb_cdc_is_ready()) return;
+    dummy_joint_pos_t jp;
+    if (dummy_arm_get_joint_pos(&jp) == 0) {
+        /* 同步最新关节角到软件缓存，防止后续命令使用过期数据 */
+        float joints[6] = {jp.j[0], jp.j[1], jp.j[2], jp.j[3], jp.j[4], jp.j[5]};
+        motion_set_current_joints(joints);
 
-    motor_ctrl_step_feedback_t feedback = {0};
-    if (!motor_ctrl_step_get_feedback(joint_index, &feedback) || !feedback.online) {
-        return 0;
+        char buf[128];
+        snprintf(buf, sizeof(buf), "[%s] J: %.1f %.1f %.1f %.1f %.1f %.1f",
+                 label, jp.j[0], jp.j[1], jp.j[2], jp.j[3], jp.j[4], jp.j[5]);
+        debug_println(buf);
     }
-
-    return ((feedback.state_byte & 0x10U) != 0U) ? 1 : 0;
 }
 
-static bool ctrl_step_ping_joint(uint8_t joint_index, uint32_t timeout_ms, motor_ctrl_step_feedback_t *out_feedback)
+/**
+ * @brief 等待运动到位后打印关节状�?
+ * 轮询关节位置，连�?次读数变�?< 0.3 度视为到�?
+ * 查询失败(电机�?时跳过继续轮询，不计数不放弃
+ * 最多等�?15 �?(50 × 300ms) 覆盖 HOME/REST 等长距离运动
+ */
+static void wait_and_print_after(void)
 {
-    if (joint_index >= MOTOR_CTRL_STEP_NUM_JOINTS) {
-        return false;
-    }
+    if (!usb_cdc_is_ready()) return;
 
-    TickType_t request_tick = xTaskGetTickCount();
-    if (motor_ctrl_step_query_position(joint_index) != 0) {
-        return false;
-    }
+    dummy_joint_pos_t prev, cur;
+    int stable = 0;
+    int got_reading = 0;
+    int consecutive_fail = 0;
+    const int MAX_POLLS = 50;   /* 50 × 300ms = 15s 上限 */
 
-    TickType_t start_tick = request_tick;
-    TickType_t timeout_tick = pdMS_TO_TICKS(timeout_ms);
-    if (timeout_tick == 0U) {
-        timeout_tick = 1U;
-    }
+    for (int i = 0; i < MAX_POLLS; i++) {
+        vTaskDelay(pdMS_TO_TICKS(300));
+        watchdog_refresh();   /* 防止长等待触发看门狗复位 */
 
-    while ((xTaskGetTickCount() - start_tick) <= timeout_tick) {
-        (void) motor_ctrl_step_poll_rx();
+        if (!usb_cdc_is_ready()) break;  /* USB断线，立即退�?*/
 
-        motor_ctrl_step_feedback_t feedback = {0};
-        if (motor_ctrl_step_get_feedback(joint_index, &feedback) && feedback.online) {
-            if (feedback.last_rx_tick >= request_tick) {
-                if (out_feedback != NULL) {
-                    *out_feedback = feedback;
-                }
-                return true;
+        if (dummy_arm_get_joint_pos(&cur) != 0) {
+            consecutive_fail++;
+            if (consecutive_fail >= 3) {
+                debug_println("[AFTER] USB query failed 3x, giving up");
+                debug_println("[AFTER] >> USB pipe may be stuck. Try: re-plug cable or reset board <<");
+                break;
             }
+            continue;  /* 查询失败(电机�?，跳过继续轮�?*/
+        }
+        consecutive_fail = 0;
+
+        if (!got_reading) {
+            got_reading = 1;
+            prev = cur;
+            continue;   /* 第一次读数作为基准，继续 */
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        /* 检查所有轴变化�?*/
+        float max_diff = 0.0f;
+        for (int j = 0; j < 6; j++) {
+            float d = cur.j[j] - prev.j[j];
+            if (d < 0) d = -d;
+            if (d > max_diff) max_diff = d;
+        }
+
+        if (max_diff < 0.3f) {
+            stable++;
+            if (stable >= 3) break;  /* 连续3次稳�?�?到位 */
+        } else {
+            stable = 0;
+        }
+        prev = cur;
     }
 
-    return false;
+    if (got_reading) {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "[AFTER] J: %.1f %.1f %.1f %.1f %.1f %.1f",
+                 cur.j[0], cur.j[1], cur.j[2], cur.j[3], cur.j[4], cur.j[5]);
+        debug_println(buf);
+    }
 }
 
 /**
  * @brief 本地测试命令处理
- * 格式: "t x y z"     - 测试IK坐标
- * 格式: "x x y z"     - 笛卡尔运动 (dummy-auk标准命令)
- * 格式: "m j0..j5"    - 六轴同步关节运动
- * 格式: "j id angle"  - 单轴运动 (0-5, 角度)
- * 格式: "home id"     - 电机归零 (当前编码器位置清零)
- * 格式: "clear id"    - 清除堵转保护
- * 格式: "enable id"   - 使能电机
- * 格式: "query id"    - 查询电机位置反馈
- * 格式: "scan"        - 自动扫描可达空间
- * 格式: "acc val"     - 设置加速度 (500-5000)
- * 格式: "pid id kp kv ki" - 设置PID
- * 格式: "fast"        - 快速模式
- * 格式: "smooth"      - 平稳模式
- * 格式: "status"      - 读取电机状态
- * 格式: "grip open/close" - 夹爪控制
- * 格式: "stop"        - 急停
- * 例如: "t 0 0 0" 或 "j 0 90"
- * @return true 如果是测试命令并已处理
+ * @return true 如果是测试命令并已处�?
  */
 static bool handle_test_command(const char *cmd)
 {
-    /* 网络连通性测试命令: nettest */
+    /* 调试：打印原始命令，便于观察行结束符/空白等问�?*/
+    debug_print("[CMD] RAW: ");
+    debug_println(cmd);
+
+    /* ========== 透传调试开�? debug arm on/off ========== */
+    if (strcmp(cmd, "debug arm on") == 0) {
+        g_arm_passthrough_enabled = true;
+        debug_println("[DEBUG] ARM passthrough enabled (!/#/>/@).");
+        return true;
+    }
+    if (strcmp(cmd, "debug arm off") == 0) {
+        g_arm_passthrough_enabled = false;
+        debug_println("[DEBUG] ARM passthrough disabled.");
+        return true;
+    }
+
+    /* ========== 网络连通性测试命�? nettest ========== */
     if (strncmp(cmd, "nettest", 7) == 0) {
         debug_println("[CMD] Running network connectivity test...");
         w800_test_network();
         return true;
     }
 
-    /* 实时性监测命令: rtmon [reset] */
+    /* ========== 调试：查看累计RX字节�? uartdebug ========== */
+    if (strcmp(cmd, "uartdebug") == 0) {
+        char buf[64];
+        uint32_t rx_bytes = debug_uart_get_rx_bytes();
+        snprintf(buf, sizeof(buf), "[DEBUG] RX bytes: %lu", (unsigned long)rx_bytes);
+        debug_println(buf);
+        return true;
+    }
+
+    /* ========== 调试串口状�? uartstat ========== */
+    if (strcmp(cmd, "uartstat") == 0) {
+        debug_uart_stats_t st = {0};
+        debug_uart_get_stats(&st);
+
+        debug_print("[UART4] queue=");
+        debug_print_int((int)st.queue_count);
+        debug_print(" dropped=");
+        debug_print_int((int)st.dropped_lines);
+        debug_print(" overflow=");
+        debug_print_int((int)st.overflow_chars);
+        debug_print(" errors=");
+        debug_print_int((int)st.uart_errors);
+        debug_println("");
+        return true;
+    }
+
+    /* ========== JSON命令测试: json <cmd> ========== */
+    if (strncmp(cmd, "json ", 5) == 0) {
+        const char *json = cmd + 5;
+        debug_print("[TEST] Direct JSON cmd: ");
+        debug_println(json);
+        w800_cmd_handle(json);
+        return true;
+    }
+
+    /* 实时性监测命�? rtmon [reset] */
     if (strncmp(cmd, "rtmon", 5) == 0) {
         if (strstr(cmd, "reset") != NULL) {
             rtmon_reset();
@@ -320,7 +413,7 @@ static bool handle_test_command(const char *cmd)
             taskmon_reset();
             debug_println("[TASKMON] Statistics reset.");
         } else {
-            taskmon_update("main_thread", 0);  /* 先更新统计 */
+            taskmon_update("main_thread", 0);
             char taskmon_buf[512];
             taskmon_print_report(taskmon_buf, sizeof(taskmon_buf));
             debug_println(taskmon_buf);
@@ -328,137 +421,49 @@ static bool handle_test_command(const char *cmd)
         return true;
     }
 
-    /* HTTP LLM测试命令: http <query> */
+    /* HTTP LLM测试命令: http <query> - LLM disabled */
+#if 0
     if (strncmp(cmd, "http ", 5) == 0) {
         const char *query = cmd + 5;
-        debug_print("[HTTP] Calling cloud LLM: ");
-        debug_println(query);
-        debug_println("[HTTP] (Render.com may take 30+ seconds on cold start...)");
-
-        char response[1024];  /* 增大缓冲区 */
+        char response[1024];
         int ret = w800_call_llm_with_retry(query, response, sizeof(response), 3);
-
         if (ret > 0) {
-            debug_print("[HTTP] Response (");
-            debug_print_int(ret);
-            debug_println(" bytes):");
-            debug_println(response);
-
-            /* 解析并执行动作 */
             process_llm_response(response);
-        } else {
-            debug_print("[HTTP] Failed after 3 retries: ");
-            debug_print_int(ret);
-            debug_println("");
         }
         return true;
     }
+#endif
 
-    /* dummy-auk标准归零命令: home <joint_id> */
-    if (strncmp(cmd, "home", 4) == 0) {
-        int joint = -1;
-        if (sscanf(cmd, "home %d", &joint) != 1) {
-            debug_println("[HOME] Usage: home <id> (id=0..5)");
-            return true;
-        }
-        if (joint < 0 || joint > 5) {
-            debug_println("[HOME] Error: joint should be 0-5");
-            return true;
-        }
-
-        debug_print("[HOME] Reset encoder zero, J");
-        debug_print_int(joint);
-        debug_println("...");
-
-        int ret = motor_ctrl_step_home((uint8_t) joint);
-        if (ret == 0) {
-            debug_println("[HOME] Done.");
-        } else {
-            debug_print("[HOME] Failed, ret=");
-            debug_print_int(ret);
-            debug_println("");
-        }
-        return true;
-    }
-
-    /* 急停命令 */
+    /* 急停命令 (走USB) */
     if (strncmp(cmd, "stop", 4) == 0) {
+        print_joint_state("BEFORE");
         debug_println("[STOP] Emergency stop!");
-        (void) motor_ctrl_step_set_enable(MOTOR_CTRL_STEP_ALL_JOINTS, false);
         motion_stop();
+        wait_and_print_after();
         return true;
     }
 
-    /* 快速模式 */
-    if (strncmp(cmd, "fast", 4) == 0) {
-        debug_println("[MODE] Switching to FAST mode...");
-        debug_println("  Acc=3000, High PID gains");
-        /* CtrlStep协议不支持运行时FAST模式参数切换（加速度/PID配置已删除）。 */
-        debug_println("[MODE] CtrlStep does not support FAST profile config, skipped.");
-        debug_println("[MODE] Done!");
+    /* 回HOME: home (统一走motion_controller) */
+    if (strcmp(cmd, "home") == 0) {
+        static const float HOME_POSE[6] = {0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f};
+        print_joint_state("BEFORE");
+        int ret = motion_move_to_joints(HOME_POSE);
+        log_motion_command_result("HOME", ret);
+        wait_and_print_after();
         return true;
     }
 
-    /* 平稳模式 */
-    if (strncmp(cmd, "smooth", 6) == 0) {
-        debug_println("[MODE] Switching to SMOOTH mode...");
-        debug_println("  Acc=1500, Low PID gains");
-        /* CtrlStep协议不支持运行时SMOOTH模式参数切换（加速度/PID配置已删除）。 */
-        debug_println("[MODE] CtrlStep does not support SMOOTH profile config, skipped.");
-        debug_println("[MODE] Done!");
+    /* 回REST: rest (统一走motion_controller) */
+    if (strcmp(cmd, "rest") == 0) {
+        static const float REST_POSE[6] = {0.0f, -73.0f, 180.0f, 0.0f, 0.0f, 0.0f};
+        print_joint_state("BEFORE");
+        int ret = motion_move_to_joints(REST_POSE);
+        log_motion_command_result("REST", ret);
+        wait_and_print_after();
         return true;
     }
 
-    /* 设置加速度: acc <value> */
-    if (strncmp(cmd, "acc ", 4) == 0) {
-        int acc = atoi(cmd + 4);
-        if (acc < 100 || acc > 10000) {
-            debug_println("[ACC] Error: value should be 100-10000");
-            return true;
-        }
-        debug_print("[ACC] Setting acceleration to ");
-        debug_print_int(acc);
-        debug_println("");
-        /* CtrlStep协议无set_acceleration接口，该配置项已删除。 */
-        debug_println("[ACC] CtrlStep does not support acceleration config, skipped.");
-        debug_println("[ACC] Done!");
-        return true;
-    }
-
-    /* 设置PID: pid <joint> <kp> <kv> <ki> */
-    if (strncmp(cmd, "pid ", 4) == 0) {
-        int joint = 0, kp = 0, kv = 0, ki = 0;
-        const char *p = cmd + 4;
-        joint = atoi(p);
-        while (*p && *p != ' ') p++; while (*p == ' ') p++;
-        kp = atoi(p);
-        while (*p && *p != ' ') p++; while (*p == ' ') p++;
-        kv = atoi(p);
-        while (*p && *p != ' ') p++; while (*p == ' ') p++;
-        ki = atoi(p);
-
-        if (joint < 0 || joint > 5) {
-            debug_println("[PID] Error: joint should be 0-5");
-            return true;
-        }
-
-        debug_print("[PID] Joint ");
-        debug_print_int(joint);
-        debug_print(": Kp=");
-        debug_print_int(kp);
-        debug_print(" Kv=");
-        debug_print_int(kv);
-        debug_print(" Ki=");
-        debug_print_int(ki);
-        debug_println("");
-
-        /* CtrlStep协议无set_pid接口，该配置项已删除。 */
-        debug_println("[PID] CtrlStep does not support PID config, skipped.");
-        debug_println("[PID] Done!");
-        return true;
-    }
-
-    /* 单轴运动: j <joint> <angle> (统一走motion_controller) */
+    /* 单轴运动: j <joint> <angle> (统一走motion_controller �?USB) */
     if (cmd[0] == 'j' && cmd[1] == ' ') {
         int joint = -1;
         float angle = 0.0f;
@@ -466,14 +471,14 @@ static bool handle_test_command(const char *cmd)
             debug_println("[JOINT] Usage: j <id> <angle>");
             return true;
         }
-        if (joint < 0 || joint > 5) {
-            debug_println("[JOINT] Error: joint should be 0-5");
+        if (joint < 1 || joint > 6) {
+            debug_println("[JOINT] Error: joint should be 1-6");
             return true;
         }
 
         float target_joints[6];
         motion_get_current_joints(target_joints);
-        target_joints[joint] = angle;
+        target_joints[joint - 1] = angle;
 
         debug_print("[JOINT] J");
         debug_print_int(joint);
@@ -481,12 +486,43 @@ static bool handle_test_command(const char *cmd)
         debug_print_int((int) angle);
         debug_println(" deg");
 
+        print_joint_state("BEFORE");
         int ret = motion_move_to_joints(target_joints);
         log_motion_command_result("JOINT", ret);
+        wait_and_print_after();
         return true;
     }
 
-    /* 六轴同步运动: m <j0> <j1> <j2> <j3> <j4> <j5> */
+    /* 相对关节运动: jr <id> <delta> (走USB) */
+    if (cmd[0] == 'j' && cmd[1] == 'r' && cmd[2] == ' ') {
+        int joint = -1;
+        float delta = 0.0f;
+        if (sscanf(cmd, "jr %d %f", &joint, &delta) != 2) {
+            debug_println("[JR] Usage: jr <id> <delta>");
+            return true;
+        }
+        if (joint < 1 || joint > 6) {
+            debug_println("[JR] Error: joint should be 1-6");
+            return true;
+        }
+
+        float target_joints[6];
+        motion_get_current_joints(target_joints);
+        float new_angle = target_joints[joint - 1] + delta;
+        target_joints[joint - 1] = new_angle;
+
+        char buf[64];
+        snprintf(buf, sizeof(buf), "[JR] J%d %+.1f -> %.1f deg", joint, delta, new_angle);
+        debug_println(buf);
+
+        print_joint_state("BEFORE");
+        int ret = motion_move_to_joints(target_joints);
+        log_motion_command_result("JR", ret);
+        wait_and_print_after();
+        return true;
+    }
+
+    /* 六轴同步运动: m <j0> <j1> <j2> <j3> <j4> <j5> (走USB) */
     if (cmd[0] == 'm' && cmd[1] == ' ') {
         float target_joints[6];
         if (sscanf(cmd, "m %f %f %f %f %f %f",
@@ -497,113 +533,33 @@ static bool handle_test_command(const char *cmd)
         }
 
         debug_println("[MOTION] Multi-joint move...");
+        print_joint_state("BEFORE");
         int ret = motion_move_to_joints(target_joints);
         log_motion_command_result("MOTION", ret);
+        wait_and_print_after();
         return true;
     }
 
-    /* 笛卡尔运动: x <x> <y> <z> */
+    /* 笛卡尔相对运�? x <dx> <dy> <dz> (走USB) */
     if (cmd[0] == 'x' && cmd[1] == ' ') {
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-        if (sscanf(cmd, "x %f %f %f", &x, &y, &z) != 3) {
-            debug_println("[MOTION] Usage: x <x> <y> <z>");
+        float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+        if (sscanf(cmd, "x %f %f %f", &dx, &dy, &dz) != 3) {
+            debug_println("[MOTION] Usage: x <dx> <dy> <dz>");
             return true;
         }
 
-        debug_print("[MOTION] XYZ -> ");
-        debug_print_int((int) x);
+        debug_print("[MOTION] DXYZ -> ");
+        debug_print_int((int) dx);
         debug_print(" ");
-        debug_print_int((int) y);
+        debug_print_int((int) dy);
         debug_print(" ");
-        debug_print_int((int) z);
+        debug_print_int((int) dz);
         debug_println("");
 
-        int ret = motion_move_to_xyz(x, y, z);
+        print_joint_state("BEFORE");
+        int ret = motion_move_by_xyz(dx, dy, dz);
         log_motion_command_result("MOTION", ret);
-        return true;
-    }
-
-    /* 调试命令: enable <joint_id> */
-    if (strncmp(cmd, "enable", 6) == 0) {
-        int joint = -1;
-        if (sscanf(cmd, "enable %d", &joint) != 1) {
-            debug_println("[ENABLE] Usage: enable <id> (id=0..5)");
-            return true;
-        }
-        if (joint < 0 || joint > 5) {
-            debug_println("[ENABLE] Error: joint should be 0-5");
-            return true;
-        }
-
-        int ret = motor_ctrl_step_set_enable((uint8_t) joint, true);
-        if (ret == 0) {
-            debug_println("[ENABLE] Done.");
-        } else {
-            debug_print("[ENABLE] Failed, ret=");
-            debug_print_int(ret);
-            debug_println("");
-        }
-        return true;
-    }
-
-    /* 调试命令: query <joint_id> */
-    if (strncmp(cmd, "query", 5) == 0) {
-        int joint = -1;
-        if (sscanf(cmd, "query %d", &joint) != 1) {
-            debug_println("[QUERY] Usage: query <id> (id=0..5)");
-            return true;
-        }
-        if (joint < 0 || joint > 5) {
-            debug_println("[QUERY] Error: joint should be 0-5");
-            return true;
-        }
-
-        int ret = motor_ctrl_step_query_position((uint8_t) joint);
-        if (ret != 0) {
-            debug_print("[QUERY] Request failed, ret=");
-            debug_print_int(ret);
-            debug_println("");
-            return true;
-        }
-
-        motor_ctrl_step_feedback_t feedback = {0};
-        if (motor_ctrl_step_get_feedback((uint8_t) joint, &feedback)) {
-            debug_print("[QUERY] J");
-            debug_print_int(joint);
-            debug_print(" angle=");
-            debug_print_int((int) feedback.feedback_angle_deg);
-            debug_print(" state=0x");
-            debug_print_hex(feedback.state_byte);
-            debug_print(" online=");
-            debug_print_int(feedback.online ? 1 : 0);
-            debug_println("");
-        } else {
-            debug_println("[QUERY] Failed to read cached feedback.");
-        }
-        return true;
-    }
-
-    /* 读取状态: status */
-    if (strncmp(cmd, "status", 6) == 0) {
-        debug_println("[STATUS] Motor states:");
-        for (int i = 0; i < 6; i++) {
-            (void) motor_ctrl_step_query_position((uint8_t) i);
-            (void) motor_ctrl_step_poll_rx();
-
-            motor_ctrl_step_feedback_t feedback = {0};
-            bool has_feedback = motor_ctrl_step_get_feedback((uint8_t) i, &feedback);
-            debug_print("  J");
-            debug_print_int(i);
-            debug_print(": angle=");
-            debug_print_int(has_feedback ? (int) feedback.feedback_angle_deg : 0);
-            debug_print(" target=");
-            debug_print_int(has_feedback ? (int) feedback.target_angle_deg : 0);
-            debug_print(" reached=");
-            debug_print_int((has_feedback && feedback.finished) ? 1 : 0);
-            debug_print(" stall=");
-            debug_print_int(ctrl_step_get_stall_status((uint8_t) i));
-            debug_println("");
-        }
+        wait_and_print_after();
         return true;
     }
 
@@ -628,90 +584,88 @@ static bool handle_test_command(const char *cmd)
         return true;
     }
 
-    /* 清除堵转保护: clear <joint_id> */
-    if (strncmp(cmd, "clear", 5) == 0) {
-        int joint = -1;
-        if (sscanf(cmd, "clear %d", &joint) != 1) {
-            debug_println("[CLEAR] Usage: clear <id> (id=0..5)");
-            return true;
-        }
-        if (joint < 0 || joint > 5) {
-            debug_println("[CLEAR] Error: joint should be 0-5");
-            return true;
-        }
+    /* 格子示教再现: slot teach/goto/grab/list/clear <id> */
+    if (strncmp(cmd, "slot ", 5) == 0) {
+        const char *p = cmd + 5;
+        int id = -1;
 
-        /* 调用motion_controller的清除堵转函数 */
-        int ret = motion_clear_stall((uint8_t)joint);
-        if (ret != 0) {
-            debug_print("[CLEAR] Failed, ret=");
-            debug_print_int(ret);
-            debug_println("");
-            return true;
+        if (strncmp(p, "teach ", 6) == 0) {
+            if (sscanf(p + 6, "%d", &id) == 1)
+                slot_teach((uint8_t)id);
+            else
+                debug_println("[SLOT] Usage: slot teach <0-15>");
+        } else if (strncmp(p, "goto ", 5) == 0) {
+            if (sscanf(p + 5, "%d", &id) == 1) {
+                slot_goto((uint8_t)id);
+                wait_and_print_after();
+            } else {
+                debug_println("[SLOT] Usage: slot goto <0-15>");
+            }
+        } else if (strncmp(p, "grab ", 5) == 0) {
+            if (sscanf(p + 5, "%d", &id) == 1)
+                slot_grab((uint8_t)id);
+            else
+                debug_println("[SLOT] Usage: slot grab <0-15>");
+        } else if (strncmp(p, "fetch ", 6) == 0) {
+            if (sscanf(p + 6, "%d", &id) == 1)
+                slot_fetch((uint8_t)id);
+            else
+                debug_println("[SLOT] Usage: slot fetch <0-15>");
+        } else if (strncmp(p, "list", 4) == 0) {
+            slot_list();
+        } else if (strncmp(p, "clear ", 6) == 0) {
+            if (sscanf(p + 6, "%d", &id) == 1)
+                slot_clear((uint8_t)id);
+            else
+                debug_println("[SLOT] Usage: slot clear <0-15>");
+        } else {
+            debug_println("[SLOT] Commands:");
+            debug_println("  slot teach <id>  - record current joints as slot id");
+            debug_println("  slot goto  <id>  - move to slot id");
+            debug_println("  slot grab  <id>  - move + vacuum on + retract");
+            debug_println("  slot fetch <id>  - full pick: grab + off + release + home");
+            debug_println("  slot list        - show all taught slots");
+            debug_println("  slot clear <id>  - clear slot id");
         }
-
-        /* 同步清除软件层故障标志，避免控制流程卡在保护态 */
-        degradation_clear();
-        g_collision_detected = false;
-        g_stall_count[joint] = 0U;
-        debug_println("[CLEAR] Done.");
         return true;
     }
 
-    /* 电机测试命令: mtest [test_id] */
-    if (strncmp(cmd, "mtest", 5) == 0) {
-        if (cmd[5] == '\0') {
-            /* 运行所有测试 */
-            debug_println("[MTEST] Running all motor tests...");
-            motor_test_run_all();
-        } else if (cmd[5] == ' ') {
-            /* 运行单个测试 */
-            int test_id = atoi(cmd + 6);
-            if (test_id < 1 || test_id > 7) {
-                debug_println("[MTEST] Usage: mtest [1-7]");
-                debug_println("  1: Enable/Disable");
-                debug_println("  2: Position Control");
-                debug_println("  3: Velocity Control");
-                debug_println("  4: Position Query");
-                debug_println("  5: Temperature Query");
-                debug_println("  6: Multi-Joint Sync");
-                debug_println("  7: Parameter Config");
+    /* 清除故障: clear */
+    if (strncmp(cmd, "clear", 5) == 0) {
+        motion_clear_stall(0xFF);
+        degradation_clear();
+        debug_println("[CLEAR] Fault cleared.");
+        return true;
+    }
+
+    /* 重新初始化臂: reinit �?重发 #CMDMODE 2 + !START */
+    if (strncmp(cmd, "reinit", 6) == 0) {
+        if (!usb_cdc_is_ready()) {
+            debug_println("[REINIT] USB not connected");
+            return true;
+        }
+        debug_println("[REINIT] Re-initializing arm (mode + enable)...");
+        for (int attempt = 0; attempt < 8; attempt++) {
+            int r1 = dummy_arm_set_mode(DUMMY_MODE_INTERRUPTABLE);
+            int r2 = dummy_arm_enable();
+
+            debug_print("[REINIT] Attempt ");
+            debug_print_int(attempt);
+            debug_print(": mode=");
+            debug_print_int(r1);
+            debug_print(" enable=");
+            debug_print_int(r2);
+            debug_println("");
+
+            if (r1 == 0 && r2 == 0) {
+                debug_println("[REINIT] OK �?arm in INTERRUPTABLE mode, enabled");
+                motion_sync_from_usb();
                 return true;
             }
-            debug_print("[MTEST] Running test ");
-            debug_print_int(test_id);
-            debug_println("...");
-            motor_test_run_single((uint8_t)test_id);
+            watchdog_refresh();
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
-        return true;
-    }
-
-    /* 手动电机控制: mmove <joint> <angle> */
-    if (strncmp(cmd, "mmove ", 6) == 0) {
-        int joint = -1;
-        float angle = 0.0f;
-        if (sscanf(cmd, "mmove %d %f", &joint, &angle) != 2) {
-            debug_println("[MMOVE] Usage: mmove <joint> <angle>");
-            debug_println("  joint: 0-5");
-            debug_println("  angle: degrees");
-            return true;
-        }
-        if (joint < 0 || joint > 5) {
-            debug_println("[MMOVE] Error: joint should be 0-5");
-            return true;
-        }
-        debug_print("[MMOVE] Moving joint ");
-        debug_print_int(joint);
-        debug_print(" to ");
-        debug_print_int((int)angle);
-        debug_println(" degrees...");
-        motor_test_move_to((uint8_t)joint, angle);
-        return true;
-    }
-
-    /* 超时检测测试: mtimeout */
-    if (strncmp(cmd, "mtimeout", 8) == 0) {
-        debug_println("[MTEST] Running timeout check test...");
-        motor_test_timeout_check();
+        debug_println("[REINIT] FAILED after 8 attempts");
         return true;
     }
 
@@ -746,257 +700,10 @@ static bool handle_test_command(const char *cmd)
         return true;
     }
 
-    /* CAN调试命令: can ping/enable/disable */
-    if (strncmp(cmd, "can ", 4) == 0) {
-        const char *sub = cmd + 4;
-
-        if (strncmp(sub, "ping ", 5) == 0) {
-            int id = atoi(sub + 5);
-            if (id < 0 || id > 5) {
-                debug_println("[CAN] Error: id should be 0-5");
-                return true;
-            }
-            debug_print("[CAN] Pinging motor ");
-            debug_print_int(id);
-            debug_println("...");
-
-            motor_ctrl_step_feedback_t feedback = {0};
-            if (ctrl_step_ping_joint((uint8_t) id, 500U, &feedback)) {
-                debug_print("[CAN] OK! State=0x");
-                debug_print_hex(feedback.state_byte);
-                debug_println("");
-            } else {
-                debug_println("[CAN] FAILED - no response (timeout 500ms)");
-            }
-        }
-        else if (strncmp(sub, "enable", 6) == 0) {
-            debug_println("[CAN] Enabling all motors (one by one)...");
-            /* 逐个发送使能命令到每个电机 */
-            for (int i = 0; i < 6; i++) {
-                uint8_t addr = 1 + i;  /* 电机地址1-6 */
-                uint32_t can_id = (uint32_t)addr << 8;
-                uint8_t data[5] = {0xF3, 0xAB, 0x01, 0x00, 0x6B};
-
-                debug_print("[CAN] Motor ");
-                debug_print_int(i);
-                debug_print(" (addr=");
-                debug_print_int(addr);
-                debug_print(") ID=0x");
-                debug_print_int((int)can_id);
-                debug_println("");
-
-                /* 直接调用FSP发送 */
-                can_frame_t frame = {
-                    .id = can_id,
-                    .id_mode = CAN_ID_MODE_EXTENDED,
-                    .type = CAN_FRAME_TYPE_DATA,
-                    .data_length_code = 5,
-                    .options = 0
-                };
-                memcpy(frame.data, data, 5);
-                fsp_err_t err = R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-                debug_print("  result=");
-                debug_print_int((int)err);
-                debug_println(err == 0 ? " (OK)" : " (FAIL)");
-
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-            /* 重置超时计时器 */
-            /* CtrlStep超时检测API待P0-2任务实现，这里不再调用重置接口。 */
-            debug_println("[CAN] Done");
-        }
-        else if (strncmp(sub, "disable", 7) == 0) {
-            debug_println("[CAN] Disabling all motors...");
-            (void) motor_ctrl_step_set_enable(MOTOR_CTRL_STEP_ALL_JOINTS, false);
-            debug_println("[CAN] Done");
-        }
-        else if (strncmp(sub, "raw", 3) == 0) {
-            /* 发送原始CAN帧测试: can raw
-             * 发送到地址1: ID=0x100, Data=F3 AB 01 00 6B (使能命令)
-             */
-            debug_println("[CAN] Sending raw frame to motor 1...");
-            debug_println("  ID=0x00000100 (Extended)");
-            debug_println("  Data=F3 AB 01 00 6B");
-
-            can_frame_t frame = {
-                .id = 0x100,  /* 地址1 << 8 = 0x100 */
-                .id_mode = CAN_ID_MODE_EXTENDED,
-                .type = CAN_FRAME_TYPE_DATA,
-                .data_length_code = 5,
-                .options = 0  /* 普通CAN帧，不是CAN FD */
-            };
-            frame.data[0] = 0xF3;  /* 功能码 */
-            frame.data[1] = 0xAB;  /* 参数 */
-            frame.data[2] = 0x01;  /* 使能 */
-            frame.data[3] = 0x00;  /* 同步标志 */
-            frame.data[4] = 0x6B;  /* 校验 */
-
-            fsp_err_t err = R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            debug_print("  R_CANFD_Write result=");
-            debug_print_int((int)err);
-            if (err == FSP_SUCCESS) {
-                debug_println(" (OK)");
-            } else if (err == FSP_ERR_CAN_TRANSMIT_NOT_READY) {
-                debug_println(" (TX busy)");
-            } else {
-                debug_println(" (ERROR)");
-            }
-        }
-        else if (strncmp(sub, "std", 3) == 0) {
-            /* 🕵️ 嫌疑四测试: 用标准帧发送使能命令
-             * 有些ZDT固件只监听标准帧，ID直接是0x01而不是0x100
-             */
-            debug_println("[CAN] Sending STANDARD frame to motor 1...");
-            debug_println("  ID=0x01 (Standard 11-bit)");
-            debug_println("  Data=F3 AB 01 00 6B");
-
-            can_frame_t frame = {
-                .id = 0x01,  /* 标准帧ID直接是地址 */
-                .id_mode = CAN_ID_MODE_STANDARD,  /* 标准帧! */
-                .type = CAN_FRAME_TYPE_DATA,
-                .data_length_code = 5,
-                .options = 0
-            };
-            frame.data[0] = 0xF3;
-            frame.data[1] = 0xAB;
-            frame.data[2] = 0x01;
-            frame.data[3] = 0x00;
-            frame.data[4] = 0x6B;
-
-            fsp_err_t err = R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            debug_print("  R_CANFD_Write result=");
-            debug_print_int((int)err);
-            debug_println(err == 0 ? " (OK)" : " (FAIL)");
-            debug_println("");
-            debug_println("If motor locks shaft now -> Standard frame works!");
-            debug_println("Try to rotate motor shaft by hand.");
-        }
-        else if (strncmp(sub, "move", 4) == 0) {
-            /* 发送速度模式命令让电机转动 */
-            debug_println("[CAN] Sending VELOCITY command to motor 1...");
-            debug_println("  Speed: 100 RPM (Emm protocol)");
-            debug_println("  Direction: CW");
-            debug_println("");
-
-            /* 先使能电机 */
-            debug_println("  Step 1: Enable motor...");
-            {
-                can_frame_t frame = {
-                    .id = 0x100,
-                    .id_mode = CAN_ID_MODE_EXTENDED,
-                    .type = CAN_FRAME_TYPE_DATA,
-                    .data_length_code = 5,
-                    .options = 0
-                };
-                frame.data[0] = 0xF3;  /* 功能码: 使能 */
-                frame.data[1] = 0xAB;  /* 参数 */
-                frame.data[2] = 0x01;  /* 使能 */
-                frame.data[3] = 0x00;  /* 同步标志 */
-                frame.data[4] = 0x6B;  /* 校验 */
-                R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            }
-            vTaskDelay(pdMS_TO_TICKS(100));
-
-            /* 发送速度模式命令 */
-            debug_println("  Step 2: Send velocity command...");
-            {
-                /* Emm速度模式: 0xF6 + 方向 + 速度(2B) + 加速度(1B) + 同步 + 校验 */
-                /* 速度 = 100 RPM = 0x0064 */
-                /* 加速度 = 10 */
-                can_frame_t frame = {
-                    .id = 0x100,
-                    .id_mode = CAN_ID_MODE_EXTENDED,
-                    .type = CAN_FRAME_TYPE_DATA,
-                    .data_length_code = 7,
-                    .options = 0
-                };
-                frame.data[0] = 0xF6;  /* 功能码: 速度模式 */
-                frame.data[1] = 0x00;  /* 方向: 0=CW */
-                frame.data[2] = 0x00;  /* 速度高字节 (100 RPM) */
-                frame.data[3] = 0x64;  /* 速度低字节 */
-                frame.data[4] = 0x0A;  /* 加速度 (10) */
-                frame.data[5] = 0x00;  /* 同步标志 */
-                frame.data[6] = 0x6B;  /* 校验 */
-                R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            }
-
-            debug_println("");
-            debug_println("  Motor should be spinning now!");
-            debug_println("  Use 'can stop' to stop the motor.");
-        }
-        else if (strncmp(sub, "stop", 4) == 0) {
-            /* 发送急停命令 */
-            debug_println("[CAN] Sending STOP command to motor 1...");
-            {
-                can_frame_t frame = {
-                    .id = 0x100,
-                    .id_mode = CAN_ID_MODE_EXTENDED,
-                    .type = CAN_FRAME_TYPE_DATA,
-                    .data_length_code = 5,
-                    .options = 0
-                };
-                frame.data[0] = 0xFE;  /* 功能码: 急停 */
-                frame.data[1] = 0x98;  /* 参数 */
-                frame.data[2] = 0x00;  /* 同步标志 */
-                frame.data[3] = 0x6B;  /* 校验 */
-                frame.data[4] = 0x00;
-                R_CANFD_Write(&g_can0_ctrl, 0, &frame);
-            }
-            debug_println("[CAN] Stop command sent.");
-        }
-        /* 'can test' command removed - dummy-auk uses CtrlStep protocol, not Emm protocol */
-        else if (strncmp(sub, "info", 4) == 0) {
-            /* CtrlStep未提供TX/error flags统计接口，改为输出反馈缓存状态。 */
-            debug_println("[CAN] CtrlStep feedback cache:");
-            for (int i = 0; i < 6; i++) {
-                motor_ctrl_step_feedback_t feedback = {0};
-                bool has_feedback = motor_ctrl_step_get_feedback((uint8_t) i, &feedback);
-
-                debug_print("  J");
-                debug_print_int(i);
-                debug_print(" online=");
-                debug_print_int((has_feedback && feedback.online) ? 1 : 0);
-                debug_print(" state=0x");
-                debug_print_hex(has_feedback ? feedback.state_byte : 0U);
-                debug_print(" last_rx_tick=");
-                debug_print_int(has_feedback ? (int) feedback.last_rx_tick : 0);
-                debug_println("");
-            }
-        }
-        else if (strncmp(sub, "clear", 5) == 0) {
-            debug_println("[CAN] Clearing CtrlStep clog latch for all joints...");
-            int ret = motor_ctrl_step_clear_clog(MOTOR_CTRL_STEP_ALL_JOINTS);
-            if (ret == 0) {
-                debug_println("[CAN] Done");
-            } else {
-                debug_print("[CAN] Failed, ret=");
-                debug_print_int(ret);
-                debug_println("");
-            }
-        }
-        else {
-            debug_println("[CAN] Usage:");
-            debug_println("  can move       - Spin motor 1 at 100 RPM");
-            debug_println("  can stop       - Stop motor 1");
-            debug_println("  can enable     - Enable all motors");
-            debug_println("  can disable    - Disable all motors");
-            debug_println("  can ping <id>  - Test motor communication (0-5)");
-            debug_println("  can raw        - Send Extended frame (ID=0x100)");
-            debug_println("  can std        - Send Standard frame (ID=0x01)");
-            debug_println("  can test       - Full diagnostic test");
-            debug_println("  can info       - Show CAN debug info");
-            debug_println("  can clear      - Clear error flags");
-        }
-        return true;
-    }
-
     /* 自动扫描命令 */
-    /* scan       - 默认扫描，只测前方 (步进50mm) */
-    /* scan full  - 全向扫描，前后都测 (步进50mm) */
-    /* scan fine  - 精细扫描 (步进30mm) */
     if (strncmp(cmd, "scan", 4) == 0) {
-        int step = 50;  /* 默认步进 */
-        int full_mode = 0;  /* 是否测试前后两面 */
+        int step = 50;
+        int full_mode = 0;
 
         if (strstr(cmd, "fine") != NULL) {
             step = 30;
@@ -1022,14 +729,7 @@ static bool handle_test_command(const char *cmd)
         int ok_count = 0;
         int fail_count = 0;
 
-        /*
-         * 测试范围 (基于ZERO机械臂臂长约400mm):
-         * X: -300 ~ 300 mm (左右)
-         * Y: ±100 ~ ±400 mm (前后，避开基座附近)
-         * Z: -200 ~ 200 mm (上下)
-         */
         for (int x = -300; x <= 300; x += step) {
-            /* 前方 Y: 100~400 */
             for (int y = 100; y <= 400; y += step) {
                 for (int z = -200; z <= 200; z += step) {
                     int ret = motion_test_ik((float)x, (float)y, (float)z);
@@ -1046,8 +746,8 @@ static bool handle_test_command(const char *cmd)
                     }
                 }
             }
+            watchdog_refresh();  /* scan 可持续数十秒，每行 x 喂一次狗 */
 
-            /* 后方 Y: -400~-100 (仅full模式) */
             if (full_mode) {
                 for (int y = -400; y <= -100; y += step) {
                     for (int z = -200; z <= 200; z += step) {
@@ -1065,6 +765,7 @@ static bool handle_test_command(const char *cmd)
                         }
                     }
                 }
+                watchdog_refresh();  /* full_mode 负向 y 段也喂一次 */
             }
         }
 
@@ -1080,111 +781,411 @@ static bool handle_test_command(const char *cmd)
         return true;
     }
 
-    /* ========== ZDT官方源码测试命令 ========== */
-    if (strncmp(cmd, "zdt ", 4) == 0) {
-        const char *sub = cmd + 4;
-
-        if (strncmp(sub, "init", 4) == 0) {
-            zdt_test_init();
+    /* 查询笛卡尔位�? lpos */
+    if (strncmp(cmd, "lpos", 4) == 0) {
+        if (!usb_cdc_is_ready()) {
+            debug_println("[USB] Not connected");
+            return true;
         }
-        else if (strncmp(sub, "vel", 3) == 0) {
-            /* 速度模式测试 */
-            zdt_test_motor1_velocity();
-        }
-        else if (strncmp(sub, "pos", 3) == 0) {
-            /* 位置模式测试 */
-            zdt_test_motor1_position();
-        }
-        else if (strncmp(sub, "on", 2) == 0) {
-            /* 使能电机 */
-            zdt_test_motor1_enable(true);
-        }
-        else if (strncmp(sub, "off", 3) == 0) {
-            /* 失能电机 */
-            zdt_test_motor1_enable(false);
-        }
-        else if (strncmp(sub, "stop", 4) == 0) {
-            /* 停止电机 */
-            zdt_test_motor1_stop();
-        }
-        else if (strncmp(sub, "status", 6) == 0) {
-            /* 读取状态 */
-            zdt_test_motor1_read_status();
-        }
-        else {
-            debug_println("[ZDT] Usage:");
-            debug_println("  zdt init   - Initialize ZDT test module");
-            debug_println("  zdt vel    - Test velocity mode (100RPM)");
-            debug_println("  zdt pos    - Test position mode (3600deg)");
-            debug_println("  zdt on     - Enable motor 1");
-            debug_println("  zdt off    - Disable motor 1");
-            debug_println("  zdt stop   - Stop motor 1");
-            debug_println("  zdt status - Read motor 1 status");
-            debug_println("");
-            debug_println("  Note: Motor 1 is 50:1 geared stepper");
-            debug_println("  100RPM motor = 2RPM output shaft");
+        dummy_cart_pos_t cp;
+        if (dummy_arm_get_cart_pos(&cp) == 0) {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "[LPOS] X=%.1f Y=%.1f Z=%.1f A=%.1f B=%.1f C=%.1f",
+                     cp.x, cp.y, cp.z, cp.a, cp.b, cp.c);
+            debug_println(buf);
+        } else {
+            debug_println("[LPOS] Query failed");
         }
         return true;
     }
 
-    if (cmd[0] != 't' || cmd[1] != ' ') {
-        return false;  /* 不是测试命令 */
+    /* 画圆: circle [loops] �?YZ平面画圆，基于HOME位姿 */
+    if (strncmp(cmd, "circle", 6) == 0) {
+        if (!usb_cdc_is_ready()) {
+            debug_println("[USB] Not connected");
+            return true;
+        }
+
+        int loops = 1;
+        if (cmd[6] == ' ') loops = atoi(cmd + 7);
+        if (loops < 1) loops = 1;
+        if (loops > 5) loops = 5;
+
+        /* 1. 先回HOME */
+        debug_println("[CIRCLE] Homing first...");
+        dummy_arm_home();
+        {
+            static const float HOME_POSE[6] = {0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f};
+            motion_set_current_joints(HOME_POSE);
+        }
+        wait_and_print_after();
+
+        /* 2. 获取HOME笛卡尔位置作为圆�?*/
+        dummy_cart_pos_t center;
+        if (dummy_arm_get_cart_pos(&center) != 0) {
+            center = (dummy_cart_pos_t){ .x=89.4f, .y=0.0f, .z=146.7f, .a=0, .b=0, .c=0 };
+            debug_println("[CIRCLE] GETLPOS failed, using HOME fallback");
+        }
+
+        const float R = 20.0f;          /* 半径 20mm (避开底部奇异区域) */
+        const int N = 20;               /* 20个点 */
+        const float circle_speed = 40.0f;    /* 40mm/s, 慢速画圆更稳定 */
+        const float arrive_thresh_sq = 25.0f; /* 5mm到位阈�?(平方) */
+        const int poll_max = 30;  /* 最多轮�?0�?× 100ms = 3s */
+
+        char info[80];
+        snprintf(info, sizeof(info), "[CIRCLE] center=(%.1f,%.1f,%.1f) R=%.0f loops=%d Yoff=%.0f",
+                 center.x, center.y, center.z, R, loops, R + 10.0f);
+        debug_println(info);
+        print_joint_state("BEFORE");
+
+        /* 3. YZ平面画圆: x恒定, y=cy+R*sin(t), z=cz+R*cos(t) */
+        for (int loop = 0; loop < loops; loop++) {
+            for (int i = 0; i < N; i++) {
+                float t = 2.0f * 3.14159f * (float)i / (float)N;
+
+                dummy_cart_pos_t target;
+                target.x = center.x;                    /* X恒定 */
+                target.y = center.y + (R + 10.0f) + R * sinf(t);  /* Y振荡, +R+10避开y=0奇异 */
+                target.z = center.z + R + R * cosf(t);  /* Z振荡, 上移R避开底部奇异 */
+                target.a = center.a;
+                target.b = center.b;
+                target.c = center.c;
+
+                int ret = dummy_arm_move_l(&target, circle_speed);
+                if (ret != 0) {
+                    debug_println("[CIRCLE] MoveL fail, skip");
+                    continue;
+                }
+
+                /* 轮询等到�?(最�?s) */
+                for (int w = 0; w < poll_max; w++) {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    watchdog_refresh();
+                    dummy_cart_pos_t cur;
+                    if (dummy_arm_get_cart_pos(&cur) != 0) continue;
+                    float dx = cur.x - target.x;
+                    float dy = cur.y - target.y;
+                    float dz = cur.z - target.z;
+                    if (dx*dx + dy*dy + dz*dz < arrive_thresh_sq) break;
+                }
+            }
+        }
+
+        /* 4. 画完回HOME */
+        debug_println("[CIRCLE] Done, homing...");
+        vTaskDelay(pdMS_TO_TICKS(2000));         /* 等FIFO自然排空(40mm/s�?s足够) */
+        dummy_arm_home();
+        {
+            static const float HOME_POSE[6] = {0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f};
+            motion_set_current_joints(HOME_POSE);
+        }
+        wait_and_print_after();
+        debug_println("[CIRCLE] Complete!");
+        return true;
     }
 
-    /* 解析 "t x y z" */
-    int x = 0, y = 0, z = 0;
-    const char *p = cmd + 2;
-
-    /* 跳过空格 */
-    while (*p == ' ') p++;
-    x = atoi(p);
-
-    /* 找下一个数字 */
-    while (*p && *p != ' ') p++;
-    while (*p == ' ') p++;
-    y = atoi(p);
-
-    while (*p && *p != ' ') p++;
-    while (*p == ' ') p++;
-    z = atoi(p);
-
-    debug_print("[TEST] IK for offset: x=");
-    debug_print_int(x);
-    debug_print(" y=");
-    debug_print_int(y);
-    debug_print(" z=");
-    debug_print_int(z);
-    debug_println("");
-
-    /* 调用运动控制器测试IK */
-    int ret = motion_move_to_xyz((float)x, (float)y, (float)z);
-    if (ret == 0) {
-        debug_println("[TEST] IK OK! (motion started)");
-    } else {
-        debug_println("[TEST] IK FAILED");
+    /* ========== 编码器零点校�?(断电后恢�? ========== */
+    if (strcmp(cmd, "calibrate") == 0) {
+        if (!usb_cdc_is_ready()) { debug_println("[CAL] Not connected"); return true; }
+        debug_println("[CAL] === CALIBRATION MODE ===");
+        debug_println("[CAL] Sending !CALIBRATION to firmware...");
+        debug_println("[CAL] Firmware will: disable -> set zero -> move to REST -> reboot");
+        char resp[128];
+        int r = dummy_arm_raw_cmd("!CALIBRATION", resp, sizeof(resp), 10000);
+        if (r >= 0) {
+            debug_print("[CAL] Resp: "); debug_println(resp);
+        } else {
+            debug_println("[CAL] Timeout (motor reboot in progress)");
+        }
+        debug_println("[CAL] Waiting 5s for motor reboot...");
+        for (int _cal_i = 0; _cal_i < 5; _cal_i++) {   /* 分段延迟，每秒喂一次狗 */
+            watchdog_refresh();
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+        r = dummy_arm_raw_cmd("!START", resp, sizeof(resp), 2000);
+        if (r >= 0) {
+            debug_println("[CAL] Motors re-enabled.");
+        } else {
+            debug_println("[CAL] START timeout, try 'usb raw !START' manually");
+        }
+        static const float HOME_POSE[6] = {0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f};
+        motion_set_current_joints(HOME_POSE);
+        debug_println("[CAL] Done. Run 'usb home' to verify.");
+        return true;
     }
 
-    return true;
+    /* ========== USB Dummy Arm 测试命令 ========== */
+    if (strncmp(cmd, "usb", 3) == 0) {
+        /* 去尾部空�? 复制命令并trim */
+        char ucmd[64];
+        strncpy(ucmd, cmd, sizeof(ucmd) - 1);
+        ucmd[sizeof(ucmd) - 1] = '\0';
+        { /* trim trailing spaces */
+            int end = (int)strlen(ucmd) - 1;
+            while (end >= 0 && ucmd[end] == ' ') ucmd[end--] = '\0';
+        }
 
-    /* 未匹配任何命令，返回false让LLM处理 */
-    return false;
+        if (strcmp(ucmd, "usb status") == 0 || strcmp(ucmd, "usb") == 0) {
+            usb_cdc_state_t st = usb_cdc_get_state();
+            const char *names[] = {"DISCONNECTED", "ATTACHED", "CONFIGURED", "READY"};
+            debug_print("[USB] State: ");
+            debug_print(names[st]);
+            debug_print("  addr=");
+            debug_print_int(usb_cdc_get_device_address());
+            debug_println("");
+        } else if (strcmp(ucmd, "usb enable") == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            int r = dummy_arm_enable();
+            debug_print("[USB] Enable: ");
+            debug_println(r == 0 ? "OK" : "FAIL");
+        } else if (strcmp(ucmd, "usb disable") == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            dummy_arm_disable();
+            debug_println("[USB] Disabled");
+        } else if (strcmp(ucmd, "usb home") == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            print_joint_state("BEFORE");
+            debug_println("[USB] Homing...");
+            dummy_arm_home();
+            /* HOME位置已知，直接设置避免查询超�?*/
+            {
+                static const float HOME_POSE[6] = {0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f};
+                motion_set_current_joints(HOME_POSE);
+            }
+            debug_println("[USB] Home done");
+            /* 位置已由 motion_set_current_joints 同步，无需再查�?*/
+        } else if (strcmp(ucmd, "usb rest") == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            print_joint_state("BEFORE");
+            dummy_arm_rest();
+            /* REST位置已知，直接设�?*/
+            {
+                static const float REST_POSE[6] = {0.0f, -73.0f, 180.0f, 0.0f, 0.0f, 0.0f};
+                motion_set_current_joints(REST_POSE);
+            }
+            debug_println("[USB] Rest done");
+            /* 位置已由 motion_set_current_joints 同步，无需再查�?*/
+        } else if (strcmp(ucmd, "usb stop") == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            print_joint_state("BEFORE");
+            dummy_arm_stop();
+            /* 急停后位置未知，从USB查询实际位置 */
+            motion_sync_from_usb();
+            debug_println("[USB] Stopped");
+            wait_and_print_after();
+        } else if (strcmp(ucmd, "usb pos") == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            dummy_joint_pos_t jp;
+            if (dummy_arm_get_joint_pos(&jp) == 0) {
+                char buf[128];
+                snprintf(buf, sizeof(buf), "[USB] J: %.1f %.1f %.1f %.1f %.1f %.1f",
+                         jp.j[0], jp.j[1], jp.j[2], jp.j[3], jp.j[4], jp.j[5]);
+                debug_println(buf);
+            } else {
+                debug_println("[USB] Query failed");
+            }
+        } else if (strncmp(ucmd, "usb move ", 9) == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            float j[6] = {0};
+            int n = sscanf(ucmd + 9, "%f %f %f %f %f %f", &j[0], &j[1], &j[2], &j[3], &j[4], &j[5]);
+            if (n >= 1) {
+                print_joint_state("BEFORE");
+                debug_println("[USB] Moving...");
+                dummy_arm_move_joints(j[0], j[1], j[2], j[3], j[4], j[5], 30.0f);
+                /* 目标已知，直接同步到motion_controller */
+                motion_set_current_joints(j);
+                debug_println("[USB] Move sent");
+                wait_and_print_after();
+            } else {
+                debug_println("[USB] Usage: usb move j1 j2 j3 j4 j5 j6");
+            }
+        } else if (strncmp(ucmd, "usb raw ", 8) == 0) {
+            if (!usb_cdc_is_ready()) { debug_println("[USB] Not connected"); return true; }
+            char resp[128];
+            int r = dummy_arm_raw_cmd(ucmd + 8, resp, sizeof(resp), 2000);
+            if (r >= 0) {
+                debug_print("[USB] Resp: ");
+                debug_println(resp);
+            } else {
+                debug_println("[USB] No response");
+            }
+        } else {
+            debug_println("[USB] Commands: usb, usb enable, usb disable, usb home, usb rest, usb stop, usb pos, usb move j1..j6, usb raw <cmd>");
+        }
+        return true;
+    }
+
+    /* ========== I2C 诊断: i2c scan/gpio/reg ========== */
+    if (strncmp(cmd, "i2c", 3) == 0) {
+        const char *sub = cmd + 3;
+        while (*sub == ' ') sub++;
+        if (strncmp(sub, "scan", 4) == 0) {
+            drv_iic0_scan();
+        } else if (strncmp(sub, "gpio", 4) == 0) {
+            drv_iic0_gpio_test();
+        } else if (strncmp(sub, "reg", 3) == 0) {
+            drv_iic0_dump_regs();
+        } else if (strncmp(sub, "init", 4) == 0) {
+            debug_println("[I2C] Manual init...");
+            drv_iic0_init();
+            debug_println("[I2C] Init done. Run 'i2c reg' to verify.");
+        } else {
+            debug_println("[I2C] Commands: i2c init, i2c scan, i2c gpio, i2c reg");
+        }
+        return true;
+    }
+
+    /* ========== 音频命令: audio init/tone/rec/vol/diag ========== */
+    if (strncmp(cmd, "audio", 5) == 0) {
+        const char *sub = cmd + 5;
+        while (*sub == ' ') sub++;
+
+        if (strncmp(sub, "init", 4) == 0) {
+            int r = audio_init();
+            if (r == 0) {
+                debug_println("[AUDIO] Init OK");
+            } else {
+                debug_println("[AUDIO] Init FAILED");
+            }
+        } else if (strncmp(sub, "tone", 4) == 0) {
+            if (!audio_is_ready()) {
+                debug_println("[AUDIO] Not initialized. Run 'audio init' first.");
+                return true;
+            }
+            uint32_t ms = 1000;
+            if (sub[4] == ' ') ms = (uint32_t)atoi(sub + 5);
+            if (ms < 100) ms = 100;
+            if (ms > 5000) ms = 5000;
+            debug_print("[AUDIO] Playing 1kHz tone for ");
+            debug_print_int((int)ms);
+            debug_println("ms...");
+            audio_play_tone(ms);
+            debug_println("[AUDIO] Tone done");
+        } else if (strncmp(sub, "rec", 3) == 0) {
+            if (!audio_is_ready()) {
+                debug_println("[AUDIO] Not initialized. Run 'audio init' first.");
+                return true;
+            }
+            uint32_t ms = 1000;
+            if (sub[3] == ' ') ms = (uint32_t)atoi(sub + 4);
+            if (ms < 100) ms = 100;
+            if (ms > 5000) ms = 5000;
+            uint32_t samples = (48000 * ms) / 1000;
+            /* 使用静态缓冲区, 最多录 ~1s (48000 × 2ch × 2bytes = 192KB, 太大)
+             * 限制为缓冲区大小 */
+            static int16_t rec_buf[960 * 2];  /* 20ms = 960 samples × 2ch */
+            if (samples > 960) samples = 960;
+            debug_print("[AUDIO] Recording ");
+            debug_print_int((int)samples);
+            debug_println(" samples...");
+            int got = audio_record(rec_buf, samples);
+            debug_print("[AUDIO] Recorded ");
+            debug_print_int(got);
+            debug_println(" samples");
+            /* 回放录音 */
+            debug_println("[AUDIO] Playing back...");
+            audio_play(rec_buf, (uint32_t)got);
+            debug_println("[AUDIO] Playback done");
+        } else if (strncmp(sub, "vol", 3) == 0) {
+            if (sub[3] == ' ') {
+                int v = atoi(sub + 4);
+                if (v < 0) v = 0;
+                if (v > 100) v = 100;
+                audio_set_volume((uint8_t)v);
+                debug_print("[AUDIO] Volume set to ");
+                debug_print_int(v);
+                debug_println("");
+            } else {
+                debug_println("[AUDIO] Usage: audio vol <0-100>");
+            }
+        } else if (strncmp(sub, "diag", 4) == 0) {
+            audio_diag();
+        } else {
+            debug_println("[AUDIO] Commands: audio init, audio tone [ms], audio rec [ms], audio vol <0-100>, audio diag");
+        }
+        return true;
+    }
+
+    /* 旧命令已移除: t dx dy dz -> x dx dy dz */
+    if (cmd[0] == 't' && cmd[1] == ' ') {
+        debug_println("[CMD] 't' removed. Use: x <dx> <dy> <dz>");
+        return true;
+    }
+
+    /* ========== 底层透传命令 (!/#/>/@): 默认禁用, 仅调试模式开�?========== */
+    if (cmd[0] == '!' || cmd[0] == '#' || cmd[0] == '>' || cmd[0] == '@') {
+        if (!g_arm_passthrough_enabled) {
+            debug_println("[CMD] Passthrough disabled. Run 'debug arm on' to enable.");
+            return true;
+        }
+        if (!usb_cdc_is_ready()) {
+            debug_println("[USB] Not connected");
+            return true;
+        }
+
+        if (cmd[0] == '!') {
+            print_joint_state("BEFORE");
+            char resp[128];
+            int r = dummy_arm_raw_cmd(cmd, resp, sizeof(resp), 2000);
+            if (r >= 0) {
+                debug_print("[USB] ");
+                debug_println(resp);
+            } else {
+                debug_println("[USB] No response (timeout)");
+            }
+            /* !命令可能改变臂位�?HOME/RESET/START�?，同步motion_controller */
+            motion_sync_from_usb();
+            wait_and_print_after();
+            return true;
+        }
+
+        if (cmd[0] == '#') {
+            char resp[128];
+            int r = dummy_arm_raw_cmd(cmd, resp, sizeof(resp), 2000);
+            if (r >= 0) {
+                debug_print("[USB] ");
+                debug_println(resp);
+            } else {
+                debug_println("[USB] No response (timeout)");
+            }
+            return true;
+        }
+
+        /* > �?@ 运动命令直接透传�?Dummy ARM */
+        print_joint_state("BEFORE");
+        char resp[128];
+        int r = dummy_arm_raw_cmd(cmd, resp, sizeof(resp), 2000);
+        if (r >= 0) {
+            debug_print("[USB] ");
+            debug_println(resp);
+        } else {
+            debug_println("[USB] No response (timeout)");
+        }
+        /* 直接运动命令绕过了motion_controller，同步实际位�?*/
+        motion_sync_from_usb();
+        wait_and_print_after();
+        return true;
+    }
+
+    return false;  /* 不是本地测试命令 */
 }
 
 /*
- * 主线程入口
+ * 主线程入�?
  */
 void new_thread0_entry(void * pvParameters)
 {
     FSP_PARAMETER_NOT_USED(pvParameters);
 
-    /* 初始化公共模块 */
+    /* 初始化公共模�?*/
     app_common_init();
 
-    /* 初始化调试串口 */
+    /* 初始化调试串�?*/
     debug_uart_init();
-    debug_println("=== RA6M5 AI Pharmacy Robot ===");
+    debug_println("=== RA6M5 AI Pharmacy Robot (USB Mode) ===");
 
-    /* 检查是否因看门狗复位 */
+    /* 检查是否因看门狗复�?*/
     if (watchdog_was_reset()) {
         debug_println("[WDT] System recovered from watchdog reset!");
     }
@@ -1198,29 +1199,43 @@ void new_thread0_entry(void * pvParameters)
     debug_println("Type command and press Enter to send to LLM");
     debug_println("");
 
-    debug_println("[DBG] motion_init...");
-    /* 初始化运动控制器 */
-    motion_init();
-    debug_println("[DBG] motion_init done");
+    /* 初始化USB Host CDC (连接Dummy机械�? */
+    debug_println("[USB] Initializing USB Host CDC...");
+    usb_cdc_init();
+    debug_println("[USB] USB Host initialized (non-blocking)");
 
-    /* 初始化降级策略模块 */
+    /* 初始化运动控制器 (USB后端) */
+    motion_init();
+
+    visual_servo_init();
+    maixcam_uart_init(&g_mc_callbacks);
+    R_SCI_UART_Open(&g_uart9_ctrl, &g_uart9_cfg);
+
+    /* 初始化降级策略模�?*/
     degradation_init();
     debug_println("[DEGRADE] Degradation module initialized");
 
-    /* 初始化实时性监测 (DWT cycle counter) */
+    /* 初始化实时性监�?(DWT cycle counter) */
     rtmon_init();
     debug_println("[RTMON] Real-time monitor initialized");
 
-    /* 初始化任务监控 */
+    /* 初始化任务监�?*/
     taskmon_init();
-    taskmon_register("main_thread");  /* 注册主线程 */
+    taskmon_register("main_thread");
     debug_println("[TASKMON] Task monitor initialized");
 
-    debug_println("[DBG] GPT open...");
-    /* 启动运动控制定时器 (5ms周期, 200Hz) */
+    /* 初始化格子示教系�?*/
+    slot_teach_init();
+    debug_println("[SLOT] Slot teach system initialized");
+
+    /* 初始化真空泵 GPIO (P600) */
+    vacuum_pump_init();
+    debug_println("[PUMP] Vacuum pump GPIO initialized");
+
+    /* 启动定时�?(5ms周期, 用于看门狗喂狗和心跳LED) */
     R_GPT_Open(&g_timer0_ctrl, &g_timer0_cfg);
     R_GPT_Start(&g_timer0_ctrl);
-    debug_println("[TIMER] Motion timer started (5ms, 200Hz)");
+    debug_println("[TIMER] Timer started (5ms, 200Hz)");
 
     /* 打开UART6 (W800通信) */
     fsp_err_t err = R_SCI_UART_Open(&g_uart6_ctrl, &g_uart6_cfg);
@@ -1233,7 +1248,7 @@ void new_thread0_entry(void * pvParameters)
     else
     {
         /* 初始化W800驱动 */
-        w800_init(w800_data_received);
+        w800_init(NULL); /* LLM callback disabled */
 
         /* 配置WiFi */
         w800_wifi_config_t wifi_cfg = {
@@ -1252,16 +1267,22 @@ void new_thread0_entry(void * pvParameters)
                 debug_print("[WIFI] Retry ");
                 debug_print_int(wifi_retry);
                 debug_println("/3...");
-                vTaskDelay(pdMS_TO_TICKS(2000));
+                watchdog_refresh();
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                watchdog_refresh();
+                vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
             /* 硬件复位W800模块 (通过P508引脚) */
             debug_println("[WIFI] Hardware resetting W800...");
             w800_hardware_reset();
 
-            /* 等待W800初始化完成 (UART命令接口需要时间启动) */
+            /* 等待W800初始化完�?(拆分延时防止看门狗复�? */
             debug_println("[WIFI] Waiting for W800 to initialize (3s)...");
-            vTaskDelay(pdMS_TO_TICKS(3000));
+            for (int d = 0; d < 3; d++) {
+                watchdog_refresh();
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
 
             /* 等待W800就绪 */
             debug_println("[WIFI] Checking W800 status...");
@@ -1274,6 +1295,7 @@ void new_thread0_entry(void * pvParameters)
                     break;
                 }
                 debug_println("[WIFI] W800 not ready, retrying...");
+                watchdog_refresh();
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
@@ -1298,202 +1320,135 @@ void new_thread0_entry(void * pvParameters)
                 debug_println("");
             }
         }
+    }   /* end else (UART6 open succeeded) */
 
-        if (wifi_connected) {
-            debug_println("");
-            debug_println("Commands:");
+
+    {   /* 无条件打印命令列�?*/
+        debug_println("");
+        debug_println("Commands:");
             debug_println("  === Motion ===");
-            debug_println("  x x y z       - Cartesian move (e.g. x 0 0 50)");
+            debug_println("  home          - Home position (0,0,90,0,0,0)");
+            debug_println("  rest          - Rest position (0,-73,180,0,0,0)");
+            debug_println("  x dx dy dz    - Cartesian delta (relative)");
             debug_println("  m j0..j5      - Multi-joint move");
-            debug_println("  j id angle    - Single joint (e.g. j 0 90)");
-            debug_println("  home id       - Set current encoder as zero");
-            debug_println("  clear id      - Clear stall protection");
-            debug_println("  enable id     - Enable one motor");
-            debug_println("  query id      - Query one motor position");
-            debug_println("  t x y z       - Legacy alias of x command");
+            debug_println("  j id angle    - Single joint (absolute)");
+            debug_println("  jr id delta   - Single joint (relative)");
             debug_println("  scan          - Auto scan workspace");
+            debug_println("  lpos          - Query cartesian position");
+            debug_println("  circle [n]    - Draw circle in YZ plane (n loops)");
             debug_println("  stop          - Emergency stop");
+            debug_println("  clear         - Clear fault state");
+            debug_println("  reinit        - Re-init arm (mode+enable)");
             debug_println("");
-            debug_println("  === Motor Tuning ===");
-            debug_println("  fast          - Fast mode (high acc/PID)");
-            debug_println("  smooth        - Smooth mode (low acc/PID)");
-            debug_println("  acc val       - Set acceleration (100-10000)");
-            debug_println("  pid j kp kv ki- Set PID (e.g. pid 0 2000 1500 500)");
-            debug_println("  status        - Show motor states");
+            debug_println("  calibrate     - Recalibrate encoder zero (after power cycle)");
             debug_println("");
-            debug_println("  === CAN Debug ===");
-            debug_println("  can ping <id> - Test motor comm (0-5)");
-            debug_println("  can enable    - Enable all motors");
-            debug_println("  can disable   - Disable all motors");
+            debug_println("  === USB Debug ===");
+            debug_println("  debug arm on/off - Enable/disable !/#/>/@ passthrough");
+            debug_println("  usb           - USB connection status");
+            debug_println("  usb pos       - Query joint positions");
+            debug_println("  usb move j1..j6 - Direct USB move");
+            debug_println("  usb raw <cmd> - Send raw USB command");
+            if (g_arm_passthrough_enabled) {
+                debug_println("  !/#/>/@       - Raw passthrough enabled");
+            }
             debug_println("");
             debug_println("  === Gripper ===");
-            debug_println("  grip open     - Open gripper");
-            debug_println("  grip close    - Close gripper");
-            debug_println("  grip vacuum on/off");
+            debug_println("  grip open/close/vacuum on/off");
+            debug_println("");
+            debug_println("  === Audio ===");
+            debug_println("  audio init    - Init audio (IIC0+WM8960+SSI0)");
+            debug_println("  audio tone [ms] - Play 1kHz test tone");
+            debug_println("  audio rec [ms]  - Record and playback");
+            debug_println("  audio vol <0-100> - Set volume");
+            debug_println("  audio diag    - Dump SSI/WM8960 diagnostic state");
             debug_println("");
             debug_println("  === Diagnostics ===");
             debug_println("  rtmon         - Show real-time stats");
-            debug_println("  rtmon reset   - Reset statistics");
             debug_println("  taskmon       - Show task CPU usage");
-            debug_println("  taskmon reset - Reset task stats");
+            debug_println("  uartstat      - Show UART4 RX/queue error stats");
             debug_println("  degrade       - Show degradation status");
+            debug_println("  i2c init      - Manual IIC2 init");
+            debug_println("  i2c scan      - Scan I2C bus (0x03-0x77)");
+            debug_println("  i2c gpio      - Read SDA/SCL pin levels");
+            debug_println("  i2c reg       - Dump IIC2 registers");
             debug_println("");
-            debug_println("  <text>        - Send to LLM");
+            /* debug_println("  ai: <text>    - Send to LLM"); */  /* LLM disabled */
             debug_println("");
             debug_print("> ");
-        }
-    }
+    }   /* 命令列表打印块结�?*/
+
 
     char cmd_buf[256];
     uint32_t heartbeat_counter = 0;
-    uint32_t collision_check_counter = 0;
-    uint32_t taskmon_counter = 0;  /* 任务监控更新计数器 */
+    uint32_t taskmon_counter = 0;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     while (1)
     {
-        /* 检查用户输入 */
+        /* 处理来自 W800 TCP 透传的 JSON 命令 */
+        w800_process_pending_cmd();
+        w800_poll_notifications();
+
+
+        /* 检查用户输�?*/
         if (debug_has_line()) {
             int len = debug_read_line(cmd_buf, sizeof(cmd_buf));
             if (len > 0) {
                 /* 先检查是否是本地测试命令 */
                 if (!handle_test_command(cmd_buf)) {
-                    /* 不是测试命令，发送到LLM */
-                    send_command_to_llm(cmd_buf);
+                    /* LLM disabled: ai: / ai commands removed */
+                    debug_print("[CMD] Unknown: ");
+                    debug_println(cmd_buf);
                 }
             }
             debug_print("> ");
         }
 
-        /* 检查LLM响应 */
+        /* LLM响应检查已禁用 */
+#if 0
         if (g_llm_resp_ready) {
             process_llm_response(g_llm_response);
             g_llm_resp_ready = false;
             g_llm_resp_idx = 0;
             debug_print("> ");
         }
+#endif
 
-        /* 更新运动控制器 (由5ms硬件定时器触发) */
+        /* 5ms定时器触�?- 看门狗喂�?+ 心跳LED */
         if (g_motion_tick) {
-            g_motion_tick = false;  /* 清除标志 */
+            g_motion_tick = false;
 
-            motion_state_t mstate = motion_get_state();
-            if (mstate == MOTION_EXECUTING) {
-                rtmon_wcet_start();
-                motion_update();
-                rtmon_wcet_end();
-            }
-            /* 运动完成，继续执行下一个动作 */
-            if (g_executing_sequence && mstate == MOTION_DONE) {
-                execute_next_action();
-            }
-
-            /* 碰撞检测 (10ms周期，每2个tick检测一次) */
-            collision_check_counter++;
-            if (collision_check_counter >= 2 && !g_collision_detected) {
-                collision_check_counter = 0;
-
-                /* CAN超时检测 (电机失联) */
-                uint8_t timeout_mask = motor_ctrl_step_check_timeout();
-                if (timeout_mask != 0) {
-                    /* 找到第一个超时的关节 */
-                    for (int i = 0; i < 6; i++) {
-                        if (timeout_mask & (1U << i)) {
-                            /* Use degradation strategy instead of immediate emergency stop */
-                            degrade_level_t level = degradation_handle_fault(
-                                FAULT_CAN_TIMEOUT, (uint8_t)i);
-
-                            if (level == DEGRADE_EMERGENCY) {
-                                g_collision_detected = true;
-                                g_executing_sequence = false;
-                            } else if (level == DEGRADE_SINGLE_JOINT) {
-                                /* Continue with degraded operation */
-                                debug_print("[DEGRADE] Continuing without J");
-                                debug_print_int(i);
-                                debug_println("");
-                            }
-                            debug_print("> ");
-                            break; /* 只处理第一个超时关节 */
-                        }
-                    }
-                }
-
-                /* 检查所有电机的堵转状态 */
-                for (int i = 0; i < 6; i++) {
-                    /* Skip disabled joints */
-                    if (degradation_is_joint_disabled((uint8_t)i)) {
-                        continue;
-                    }
-
-                    if (ctrl_step_get_stall_status((uint8_t)i) == 1) {
-                        /* 堵转计数+1 */
-                        g_stall_count[i]++;
-
-                        /* 连续检测到堵转超过阈值才触发 */
-                        if (g_stall_count[i] >= COLLISION_CONFIRM_COUNT) {
-                            /* Use degradation strategy */
-                            degrade_level_t level = degradation_handle_fault(
-                                FAULT_MOTOR_STALL, (uint8_t)i);
-
-                            if (level >= DEGRADE_POSITION_HOLD) {
-                                g_collision_detected = true;
-                                g_executing_sequence = false;
-                                debug_println("");
-                                debug_print("[COLLISION] Motor J");
-                                debug_print_int(i);
-                                debug_print(" stall -> ");
-                                debug_println(degradation_level_str(level));
-                                debug_println("[COLLISION] Use 'clear <id>' to reset.");
-                                debug_print("> ");
-                            }
-                            break;
-                        }
-                    } else {
-                        /* 堵转状态消失，重置计数 */
-                        g_stall_count[i] = 0;
-                    }
-                }
-
-                /* Attempt auto-recovery if in degraded state */
-                if (degradation_get_level() > DEGRADE_NONE &&
-                    degradation_get_level() < DEGRADE_EMERGENCY) {
-                    if (degradation_recover()) {
-                        debug_print("[DEGRADE] Auto-recovered to ");
-                        debug_println(degradation_level_str(degradation_get_level()));
-                        if (degradation_get_level() == DEGRADE_NONE) {
-                            g_collision_detected = false;
-                        }
-                        debug_print("> ");
-                    }
+            /* 动作序列完成检�?(LLM disabled) */
+#if 0
+            if (g_executing_sequence) {
+                motion_state_t mstate = motion_get_state();
+                if (mstate == MOTION_DONE || mstate == MOTION_ERROR) {
+                    execute_next_action();
                 }
             }
+#endif
 
             /* 心跳LED */
             heartbeat_counter++;
             if (heartbeat_counter >= 100) {  /* 5ms * 100 = 500ms */
                 heartbeat_counter = 0;
 
-                /* 喂狗 (每500ms刷新一次，超时约2.7秒) */
+                /* 喂狗 (�?00ms刷新一次，超时�?.7�? */
                 watchdog_refresh();
 
-                /* 任务监控更新 (每秒一次) */
+                /* 任务监控更新 (每秒一�? */
                 taskmon_counter++;
                 if (taskmon_counter >= 2) {  /* 500ms * 2 = 1s */
                     taskmon_counter = 0;
                     taskmon_update("main_thread", 0);
                 }
 
-                if (g_wifi_error_code != 0) {
-                    R_IOPORT_PinWrite(&g_ioport_ctrl, LED_PIN, BSP_IO_LEVEL_HIGH);
-                } else {
-                    R_IOPORT_PinWrite(&g_ioport_ctrl, LED_PIN, BSP_IO_LEVEL_HIGH);
-                }
             }
-            if (heartbeat_counter == 10) {  /* 50ms后关闭LED */
-                R_IOPORT_PinWrite(&g_ioport_ctrl, LED_PIN, BSP_IO_LEVEL_LOW);
-            }
+            /* LED 闪烁已移至 motion_timer_callback ISR，此处无需操作 */
         }
 
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));  /* 1ms绝对延迟，保证固定周期 */
+
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));
+
     }
 }
